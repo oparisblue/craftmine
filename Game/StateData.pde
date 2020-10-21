@@ -102,9 +102,19 @@ public class DimPos {
   
 }
 
-public void newWorld(int seed) {
+public void newWorld(int seed, boolean creative, boolean superflat) {
   EntityPlayer player = new EntityPlayer(new PVector(64, 200), "Overworld", false);
-  String template = "<?xml version=\"1.0\"?><world><data><seed>" + seed + "</seed></data><entities>" + player.toXML() + "</entities><chunks></chunks></world>";
+  
+  String levelData = "<seed>" + seed + "</seed><creative>" + (creative ? "T" : "F") + "</creative><superflat>" + (superflat ? "T" : "F") + "</superflat>";
+  
+  String globalData = "";
+  
+  // Load all of the global world data to add to the XML file from the Game Registry, and set each to their default value.
+  for (String name : gr.worldData.keys()) {
+    globalData += gr.worldData.get(name).toXML();
+  }
+  
+  String template = "<?xml version=\"1.0\"?><world><data>" + levelData + "<val key=\"global\" type=\"s\">" + globalData + "</val></data><entities>" + player.toXML() + "</entities><chunks></chunks></world>";
   String saveName = "saves/" + seed + ".xml";
   saveXML(parseXML(template), saveName);
   loadWorld(saveName);
@@ -122,7 +132,10 @@ public void loadWorld(String saveName) {
   terrainManager.blocksToSave.clear();
   terrainManager.entitiesToAdd.clear();
   terrainManager.entitiesToRemove.clear();
-  terrainManager.suctionBoxes.clear();  
+  terrainManager.suctionBoxes.clear();
+  terrainManager.worldData = new StateData(xml.getChild("data/val"));
+  terrainManager.creative = xml.getChild("data/creative").getContent().equals("T");
+  terrainManager.superflat = xml.getChild("data/superflat").getContent().equals("T");
   
   // Make the player
   XML[] entities = xml.getChild("entities").getChildren();
@@ -146,6 +159,7 @@ public void loadWorld(String saveName) {
   // Reset state
   guiUtils.closeGui();
   onMenuScreen = false;
+  clearInput();
   
   // Add the player to the scene
   player = plr;
@@ -158,6 +172,11 @@ public void loadWorld(String saveName) {
 * @param k The key for the chunk to save. If null, all chunks will be saved.
 */
 public void saveWorld(ArrayList<Integer> k) {
+  
+  // Remove the exisiting global data
+  terrainManager.world.getChild("data").removeChild(terrainManager.world.getChild("data/val"));
+  // Serialise the current global data and add it to the save file
+  terrainManager.world.getChild("data").addChild(parseXML("<val key=\"global\" type=\"s\">" + terrainManager.worldData.toXML() + "</val>"));
   
   XML chunks = terrainManager.world.getChild("chunks");
   

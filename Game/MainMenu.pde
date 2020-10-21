@@ -4,24 +4,33 @@ public class GUIMainMenu extends GUI {
   
   private boolean newWorld = false;
   private String seed = "";
+  private boolean creative = false;
+  private boolean superflat = false;
   
   GUIAction quitGame;
   GUIAction createWorld;
   GUIAction makeSeed;
   GUIAction goBack;
   GUIAction beginGame;
+  GUIAction toggleCreative;
+  GUIAction toggleSuperflat;
   
   public GUIMainMenu() {
-    quitGame    = new GUIAction(){ public void action() { exit(); }};
-    createWorld = new GUIAction(){ public void action() { makeSeed(); newWorld = true; }};
-    makeSeed    = new GUIAction(){ public void action() { makeSeed(); }};
-    goBack      = new GUIAction(){ public void action() { newWorld = false; }};
-    beginGame   = new GUIAction(){ public void action() { newWorld(Integer.parseInt(seed)); }};    
+    quitGame        = new GUIAction(){ public void action() { exit(); }};
+    createWorld     = new GUIAction(){ public void action() { makeSeed(); newWorld = true; creative = false; superflat = false; }};
+    makeSeed        = new GUIAction(){ public void action() { makeSeed(); }};
+    toggleCreative  = new GUIAction(){ public void action() { creative  = !creative; }};
+    toggleSuperflat = new GUIAction(){ public void action() { superflat = !superflat; }};
+    goBack          = new GUIAction(){ public void action() { newWorld = false; }};
+    beginGame       = new GUIAction(){ public void action() { newWorld(Integer.parseInt(seed), creative, superflat); }};
   }
   
   public void render() {
     background(55);
     PVector tl = guiUtils.drawTexturedModalRect(486, 516);
+    
+    color green = color(139, 195, 74);
+    color greenHover = color(104, 159, 56);
     
     if (newWorld) {
       guiUtils.drawPanel(tl.x + 16, tl.y + 16, 450, 420, MID_GREY, MID_GREY, true);
@@ -29,9 +38,13 @@ public class GUIMainMenu extends GUI {
       guiUtils.drawPanel(tl.x + 32, tl.y + 64, 360, 48, MID_GREY, MID_GREY, true);
       guiUtils.drawText(tl.x + 48, tl.y + 80, seed, 255, 255, 255, true, false);
       
-      guiUtils.button(tl.x + 404, tl.y + 64, 48, 48, makeSeed, "©", color(139, 195, 74), color(104, 159, 56));
+      guiUtils.button(tl.x + 404, tl.y + 64, 48, 48, makeSeed, "©", green, greenHover);
+      
+      guiUtils.button(tl.x + 32, tl.y + 128, 201, 48, toggleCreative, "Creative", creative ? green : LIGHT_GREY, creative ? greenHover : LIGHT_BLUE);
+      guiUtils.button(tl.x + 249, tl.y + 128, 201, 48, toggleSuperflat, "Superflat", superflat ? green : LIGHT_GREY, superflat ? greenHover : LIGHT_BLUE);
+      
       guiUtils.button(tl.x + 16, tl.y + 452, 217, 48, goBack, "Go Back");
-      guiUtils.button(tl.x + 249, tl.y + 452, 217, 48, beginGame, "Begin Game", color(139, 195, 74), color(104, 159, 56));
+      guiUtils.button(tl.x + 249, tl.y + 452, 217, 48, beginGame, "Begin Game", green, greenHover);
     }
     else {
       
@@ -61,16 +74,17 @@ public class GUIMainMenu extends GUI {
         guiUtils.drawText(tl.x + 35, posFromTop + 17, saves.get(pos), 255, 255, 255, true, false);
         guiUtils.button(tl.x + 352, posFromTop + 17, 48, 48, new GUIAction(){
           public void action() { loadWorld("saves/" + saves.get(pos) + ".xml"); } 
-        }, "¬", color(139, 195, 74), color(104, 159, 56));
+        }, "¬", green, greenHover);
         guiUtils.button(tl.x + 292, posFromTop + 17, 48, 48, new GUIAction(){
           public void action() { new File(sketchPath() + "/saves/" + saves.get(pos) + ".xml").delete(); } 
         }, "ø", color(239, 83, 80), color(211, 47, 47));
       }    
       
       guiUtils.button(tl.x + 16, tl.y + 452, 217, 48, quitGame, "Quit Game");
-      guiUtils.button(tl.x + 249, tl.y + 452, 217, 48, createWorld, "Create World", color(139, 195, 74), color(104, 159, 56));
+      guiUtils.button(tl.x + 249, tl.y + 452, 217, 48, createWorld, "Create World", green, greenHover);
     }
     
+    guiUtils.drawText(16, height - 32, "Craftmine Version 1.1");
   }
   
   public void makeSeed() {

@@ -1,3 +1,6 @@
+import java.util.Set;
+import java.util.HashSet;
+
 public GameRegistry gr;
 public TerrainManager terrainManager;
 public ArrayList<Mod> mods;
@@ -78,6 +81,8 @@ void draw() {
   deltaTime = newMillis - lastMillis;
   lastMillis = newMillis;
   
+  for (Animation ani : gr.animations.all()) ani.nextFrame();
+  
   terrainManager.updateLoadedChunks();
   camera.render();
   terrainManager.updateEntities();
@@ -128,16 +133,20 @@ void keyPressed() {
   if (key == CODED && keyCode == SHIFT) shiftKeyDown = true;
   else if (key == ESC) {
     key = 0; //Don't quit the program
-    if (!onMenuScreen) { // Playing the game -> save and quit to title
-      saveWorld(null);
-      backToMenu();
+    if (!onMenuScreen) { // Playing the game...
+      if (guiUtils.isGuiOpen()) { // GUI -> Close GUI
+        guiUtils.closeGui();
+      }
+      else { // No GUI -> Save and quit to title
+        saveWorld(null);
+        backToMenu();
+      }
     }
     else { // Title screen -> quit to desktop
       exit();
     }
   }
   else if (!keysDown.contains(String.valueOf(key))) keysDown.add(String.valueOf(key));
-  //if (key == ESC) key = 0;
 }
 
 void keyReleased() {
@@ -159,5 +168,6 @@ public enum Direction {
   NORTH,
   EAST,
   SOUTH,
-  WEST
+  WEST,
+  ALL
 }

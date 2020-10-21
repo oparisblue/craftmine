@@ -144,6 +144,13 @@ public class Item {
   public String[] getTooltip(ItemStack stack) { return new String[]{}; } // Most items do not need extra tooltip info. 
   
   /**
+  * Used to define the colour of the name of a item's tooltip. Subsequent lines (e.g. those added with <code>getTooltip()</code>) are always gray.
+  * @param stack The containing ItemStack.
+  * @return The colour to use for its name in the tooltip.
+  */
+  public color getTooltipColour(ItemStack stack) { return color(255, 255, 255); } // Most items have a white title
+  
+  /**
   * Get the item state to use when creating a new stack of this item.
   * @param This item's default state.
   */
@@ -163,6 +170,12 @@ public class Item {
   */
   public int getBurnTime(ItemStack stack) { return -1; }
   
+  /**
+  * Should this item appear in the creative menu? Most items should, but this lets you turn it off for e.g. technical items.
+  * @return <code>true</code> if it appears in the menu, <code>false</code> otherwise.
+  */
+  public boolean canShowInCreative() { return true; } // Most items should be shown in creative
+  
 }
 
 public class ItemBlock extends Item {
@@ -170,6 +183,8 @@ public class ItemBlock extends Item {
   public String getName() {
     return "ItemBlock"; 
   }
+  
+  public boolean canShowInCreative() { return false; }
   
   public String getVisibleName(ItemStack stack) {
     BlockState state = getBlock(stack);
@@ -186,9 +201,25 @@ public class ItemBlock extends Item {
     return state.getBlock().getItemTexture(state);
   }
   
-  public String[] getToolip(ItemStack stack) {
+  public PImage render(ItemStack stack, float leftX, float topY, int defaultSize) {
+    BlockState state = getBlock(stack);
+    // Render using the block's in-world code
+    if (state.getBlock().itemHasBlockRender()) {
+      state.getBlock().render(state, leftX, topY, defaultSize);
+      return null;
+    }
+    // Use the built-in item renderer instead
+    return super.render(stack, leftX, topY, defaultSize);
+  }
+  
+  public String[] getTooltip(ItemStack stack) {
     BlockState state = getBlock(stack);
     return state.getBlock().getTooltip(state);
+  }
+  
+  public color getTooltipColour(ItemStack stack) {
+    BlockState state = getBlock(stack);
+    return state.getBlock().getTooltipColour(state);
   }
   
   public int getBurnTime(ItemStack stack) {
@@ -225,8 +256,8 @@ public class ItemBlock extends Item {
     if ((sortLayer == -1 || sortLayer == layer) && target instanceof ArrayList<?>) {
       BlockState pos = ((BlockState)(((ArrayList)target).get(layer)));
       if (pos.isAir() || pos.getBlock().isOverridable(pos)) {
-        pos.setBlock(state.getBlock(), state.getBlock().doesPlacementPreserveState(state) ? state.getState() : state.getBlock().getDefaultState());
-        stack.addStackSize(-1);
+        pos.setBlock(state.getBlock(), state.getBlock().doesPreserveState(state) ? state.getState() : state.getBlock().getDefaultState());
+        if (!terrainManager.isCreative()) stack.addStackSize(-1);
       }
     }
   }
@@ -322,6 +353,10 @@ public class ItemStack {
   
   public boolean isEmpty() {
     return item == null && state == null && size == 0; 
+  }
+  
+  public String toString() {
+    return isEmpty() ? "Empty" : item.getName() + " x " + size;
   }
   
 }

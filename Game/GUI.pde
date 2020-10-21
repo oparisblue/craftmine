@@ -161,6 +161,10 @@ public class GUIUtils {
     noTint();
   }
   
+  public void drawContainer(float x, float y, Container container, int rowSize, boolean interactable) {
+    drawContainer(x, y, container, rowSize, interactable, 0, container.getSize());
+  }
+  
   /**
   * Draw every slot in a container to the screen.
   * @param x The left corner of the first slot.
@@ -168,13 +172,20 @@ public class GUIUtils {
   * @param container The container to draw the slots of.
   * @param rowSize How many slots fit on a single row before they wrap to the next line. This is typically 9.
   * @param interactable Can you move the items in the slots?
+  * @param start The index to start drawing from
+  * @param end The index to stop drawing at
   */
-  public void drawContainer(float x, float y, Container container, int rowSize, boolean interactable) {
+  public void drawContainer(float x, float y, Container container, int rowSize, boolean interactable, int start, int end) {
     float startingX = x;
     noStroke();
     if (interactable) fill(255); else fill(0, 0, 0, 128);
-    rect(x, y, (SLOT_SIZE + 2) * rowSize, (SLOT_SIZE + 2) * (container.getSize() / rowSize));
-    for (int i = 0; i < container.getSize(); i++) {
+    rect(x, y, (SLOT_SIZE + 2) * rowSize, (SLOT_SIZE + 2) * ((end - start) / rowSize));
+    
+    ItemStack tooltipItem = null;
+    int tooltipLeft = 0;
+    int tooltipBottom = 0;
+    
+    for (int i = start; i < end; i++) {
       
       if (interactable) fill(47); else noFill();
       rect(x, y, SLOT_SIZE, SLOT_SIZE);
@@ -201,16 +212,25 @@ public class GUIUtils {
             else {
               heldItem = container.getAtSlot(i);
               container.setAtSlot(getEmptyIS(), i);
+              if (container.isProviderSlot() && shiftKeyDown) {
+                 heldItem.addStackSize(64);
+              }
             }
           }
           // If this slot accepts items
           else if (container.slotCanAcceptItem(heldItem, i)) {
             // Items are of the same type and have the same metadata; and there is room in the stack -> merge stacks
             if (heldItem.couldMerge(item)) {
-              // Right click -> merge one; Left click -> merge all
-              int amt = rMouseDown ? 1 : heldItem.getStackSize();
-              item.addStackSize(amt);
-              heldItem.addStackSize(-amt);
+              // Merge the other way
+              if (container.isProviderSlot()) {
+                heldItem.addStackSize(shiftKeyDown ? 64 : 1);
+              }
+              else {
+                // Right click -> merge one; Left click -> merge all
+                int amt = rMouseDown ? 1 : heldItem.getStackSize();
+                item.addStackSize(amt);
+                heldItem.addStackSize(-amt);
+              }
             }
             // Slot is empty
             else if (item.isEmpty()) {
@@ -224,7 +244,8 @@ public class GUIUtils {
             // Swap held item with other item
             else {
               container.setAtSlot(heldItem, i);
-              heldItem = item;
+              if (container.isProviderSlot()) heldItem = getEmptyIS();
+              else                            heldItem = item;
             }
           }
           // If this slot does not accept items; and the item we're holding is of the same type and has space -> add to held item
@@ -241,8 +262,16 @@ public class GUIUtils {
           }
         }
         else {
+          // Highlight the slot
           fill(180, 180, 180, 128);
           rect(x + 2, y + 2, SLOT_SIZE - 2, SLOT_SIZE - 2);
+          
+          // The tooltip will be for this slot if nothing is being held and there's something in the slot
+          if (heldItem.isEmpty() && !item.isEmpty()) {
+            tooltipItem = item;
+            tooltipLeft = mouseX + 32;
+            tooltipBottom = mouseY - 32;
+          }
         }
       }
       
@@ -251,6 +280,43 @@ public class GUIUtils {
         y += SLOT_SIZE + 2;
       }
       else  x += SLOT_SIZE + 2;
+    }
+    
+    if (tooltipItem != null) {
+      Item item = tooltipItem.getItem();
+      String[] supps = item.getTooltip(tooltipItem);
+      
+      String[] rows = new String[1 + supps.length];
+      rows[0] = item.getVisibleName(tooltipItem);
+      for (int i = 0; i < supps.length; i++) rows[i + 1] = supps[i];
+      
+      // Find the longest line
+      int longest = 0;
+      for (int i = 0; i < rows.length; i++) longest = max(longest, rows[i].length() * 16);
+      
+      // Find coords
+      int ttX = tooltipLeft - 4;
+      int ttY = tooltipBottom - (18 * rows.length);
+      int ttW = longest + 8;
+      int ttH = (18 * rows.length) + 6;
+      
+      // Draw the backing rect
+      fill(0, 0, 0, 225);
+      rect(ttX, ttY, ttW, ttH);
+      stroke(0, 0, 255);
+      // Draw the border
+      line(ttX, ttY, ttX + ttW - 1, ttY); // Top
+      line(ttX + ttW, ttY + 1, ttX + ttW, (ttY + ttH) - 1); // Right
+      line(ttX, ttY + ttH, ttX + ttW - 1, ttY + ttH); // Bottom
+      line(ttX - 1, ttY + 1, ttX - 1, (ttY + ttH) - 1); // Left
+      noStroke();
+      
+      // Draw the text
+      color textColour = item.getTooltipColour(tooltipItem);
+      for (int i = 0; i < rows.length; i++) {
+        drawText(tooltipLeft, (ttY + 4) + (i * 18), rows[i], (int)(red(textColour)), (int)(green(textColour)), (int)(blue(textColour)), true, false);
+        textColour = color(128, 128, 128); // All subsequent lines are gray
+      }
     }
   }
   
@@ -303,7 +369,7 @@ public class GUIUtils {
   public void drawItem(float x, float y, int size, ItemStack stack, boolean noUI) {
     if (stack.isEmpty()) return; // Do nothing for empty items.
     Item item = stack.getItem();
-    PImage maskImg = item.render(stack, x, y, size);    
+    PImage maskImg = item.render(stack, x, y, size);
     
     float durability = item.getDurabilityAmount(stack);
     int stackSize = stack.getStackSize();

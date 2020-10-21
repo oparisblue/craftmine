@@ -12,6 +12,9 @@ public class TerrainManager {
   private ArrayList<Entity> entitiesToAdd = new ArrayList<Entity>();
   private ArrayList<Entity> entitiesToRemove = new ArrayList<Entity>();
   private ArrayList<SuctionBox> suctionBoxes = new ArrayList<SuctionBox>();
+  private StateData worldData = new StateData();
+  private boolean creative = false;
+  private boolean superflat = false;
   
   public ArrayList<DimPos> blocksToSave = new ArrayList<DimPos>();
   public XML world;
@@ -23,6 +26,14 @@ public class TerrainManager {
   
   public void requestLightingRecalc() {
     shouldRecalcLighting = true;
+  }
+  
+  public boolean isCreative() {
+    return creative; 
+  }
+  
+  public boolean isSuperflat() {
+    return superflat; 
   }
   
   /**
@@ -300,7 +311,7 @@ public class BiomeSuperflat implements Biome {
     int current = 0;
     for (int y = 0; y < h; y++) {
       if (y == levels[current]) current++;
-      if (current >= levels.length) throw new Error("BiomesSuperflat: levels defined not enough to cover a full 128 high column.");
+      if (current >= levels.length) throw new Error("BiomeSuperflat: levels defined not enough to cover a full 128 high column.");
       column[y] = new ArrayList<BlockState>();
       Block b = gr.blocks.get(blocks[current]);
       column[y].add(new BlockState(b, new PVector(x, y, 0), b.getDefaultState()));

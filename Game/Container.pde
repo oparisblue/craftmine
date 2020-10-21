@@ -2,6 +2,9 @@ public class Container {
   
   protected ItemStack[] items;
   
+  // This empty constructor provided to help subclasses, but be sure to make the items array by the end of your constructor!!! 
+  protected Container() {}
+  
   public Container(ItemStack[] items) {
     this.items = items;
   }
@@ -36,6 +39,13 @@ public class Container {
   public ItemStack getAtSlot(int i) {
     if (i < 0 || i > getSize()) throw new Error("Invalid slot ID!");
     return items[i];
+  }
+  
+  /**
+  * Provider slots can't swap items, and always merge their item to the held item, rather than vis versa.
+  */
+  public boolean isProviderSlot() {
+    return false; 
   }
   
   public void setAtSlot(ItemStack stack, int i) {
@@ -146,10 +156,54 @@ public class CraftingResult extends Container {
   }
   
   public void setAtSlot(ItemStack stack, int i) {
-    if (stack.isEmpty()) {
+    if (stack.isEmpty() && grid.getCurrentRecipe() != null) {
       grid.getCurrentRecipe().crafted(grid);
       grid.doPossibleCraft();
     }
   }
+  
+}
+
+public class CreativeInventory extends Container {
+  
+  public CreativeInventory() {
+    // Find all registered (and participating!) blocks and items from the game registry and add them
+    
+    ArrayList<ItemStack> participatingItems = new ArrayList<ItemStack>();
+    
+    for (Block block : gr.blocks.all()) {
+      if (block.canShowInCreative()) participatingItems.add(getBlockIS(block.getName()));
+    }
+    
+    for (Item item : gr.items.all()) {
+      if (item.canShowInCreative()) participatingItems.add(getIS(item.getName()));
+    }
+    
+    // Make the smallest list of items possible (yet still divisible by 9)
+    items = new ItemStack[(ceil(participatingItems.size() / 9) + 1) * 9];
+    
+    for (int i = 0; i < items.length; i++) {
+      if   (i < participatingItems.size()) items[i] = participatingItems.get(i);
+      else items[i] = getEmptyIS();
+    }
+  }
+  
+  public ItemStack getAtSlot(int i) {
+    if (i < 0 || i > getSize()) return getEmptyIS();
+    if (items[i].isEmpty()) return items[i];
+    Item item = items[i].getItem();
+    
+    // We need to deep clone the items, otherwise e.g. using the durability on the flint and steel would also drain the durability of our copy
+    if (item instanceof ItemBlock) {
+      StateData data = new StateData("Block", new BlockState(((BlockState)items[i].getState().get("Block")).getBlock(), new PVector(0, 0, 0), new StateData()));
+      return new ItemStack(items[i].getItem(), 1, data);
+    }
+    else {
+      return new ItemStack(items[i].getItem(), 1, item.getDefaultState());
+    }
+  }
+  
+  public void setAtSlot(ItemStack stack, int i) {} // Can't override items in the creative inventory
+  public boolean isProviderSlot() { return true; } // Opt in for the alternate slot behaviour
   
 }

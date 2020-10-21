@@ -159,7 +159,6 @@ public class GUICamera extends FollowCamera {
     }
     
     guiUtils.cleanup();
-    
   }
   
   public PVector getOffset() {

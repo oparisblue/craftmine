@@ -7,6 +7,8 @@ public class BaseGame implements Mod {
     PImage spritesheet = loadImage("sprites.png");
     gr.beginSmartRegistry(spritesheet);
     
+    gr.worldData.register("nextQuantumId", new StateData("nextQuantumId", 0));
+    
     // 0: None
     // 1: Wood / Gold
     // 2: Stone
@@ -26,7 +28,7 @@ public class BaseGame implements Mod {
     gr.sr(new Block("Iron Ore", 2, 2, "Pickaxe", true));
     gr.sr(new Block("Gold Ore", 1.5, 2, "Pickaxe", true));
     gr.sr(new Block("Redstone Ore", 1, 2, "Pickaxe", true) {
-       public ArrayList<ItemStack> getDroppedItems(BlockState state) { return getStacks(getIS("Redstone Dust")); }
+       public ArrayList<ItemStack> getDroppedItems(BlockState state) { return getStacks(getBlockIS("Redstone")); }
     });
     gr.sr(new Block("Diamond Ore", 2, 2, "Pickaxe", true) {
        public ArrayList<ItemStack> getDroppedItems(BlockState state) { return getStacks(getIS("Diamond")); }
@@ -71,7 +73,9 @@ public class BaseGame implements Mod {
     gr.sr(new Block("Sandstone Bricks", 2, 1, "Pickaxe", true));
     gr.sr(new Block("Bricks", 2, 1, "Pickaxe", true));
     gr.sr(new Block("Clay", 1, 0, "Shovel", false));
-    gr.sr(new BlockFalling("Gravel", 1, 0, "Shovel", false));
+    gr.sr(new BlockFalling("Gravel", 1, 0, "Shovel", false) {
+       public ArrayList<ItemStack> getDroppedItems(BlockState state) { return getStacks(random(1) > 0.75 ? getIS("Flint") : getBlockIS("Gravel")); } // 1/4 chance to drop flint
+    });
     gr.sr(new BlockFalling("Sand", 1, 0, "Shovel", false));
     gr.sr(new Block("Obsidian", 15, 4, "Pickaxe", true));
     gr.sr(new Block("Bookshelf", 1, 0, "Axe", false));
@@ -126,14 +130,14 @@ public class BaseGame implements Mod {
         }
         return false;
       }
-      public void onCreate(BlockState state) { clearInput(); }
+      public void onCreate(BlockState state, boolean isLoad) { clearInput(); }
       public int getRequiredSortLayer() { return 1; }
     });
     gr.sr(new Block("Brewing Stand", 0.5) {
-      public boolean isOpaque(BlockState state) { return false; } 
+      public boolean isOpaque(BlockState state) { return false; }
     });
     gr.sr(new Block("Cauldron", 2, 0, "Pickaxe", false) {
-      public boolean isOpaque(BlockState state) { return false; } 
+      public boolean isOpaque(BlockState state) { return false; }
     });
     gr.sr(new Block("Wool", 2));
     gr.sr(new BlockSemiSolid("Sapling"){
@@ -144,8 +148,78 @@ public class BaseGame implements Mod {
         state.setBlock(gr.blocks.get("Air"));
       }*/
     });
+    gr.sr(new Block("Magma", 0.2, 0, "Pickaxe", false));
+    gr.sr("Quantum Ore Shadow");
+    gr.sr("Quantum Ore Mask");
+    gr.sr(new Block("Quantum Ore", 0.8, 1, "Pickaxe", true){
+      public void render(BlockState state, float leftX, float topY, int defaultSize) {
+        super.render(state, leftX, topY, defaultSize);
+        tint(random(255), random(255), random(255));
+        image(gr.sprites.get("Quantum Ore Mask"), leftX, topY, defaultSize, defaultSize);
+        noTint();
+        image(gr.sprites.get("Quantum Ore Shadow"), leftX, topY, defaultSize, defaultSize);
+      }
+      public ArrayList<ItemStack> getDroppedItems(BlockState state) {
+        int id = (int)terrainManager.worldData.get("nextQuantumId");
+        terrainManager.worldData.set("nextQuantumId", id + 1); // Increment the ID in the global world data
+        return getStacks(getIS("Quantum Shard", 2, new StateData("id", id, "r", int(random(255)), "g", int(random(255)), "b", int(random(255))))); // Drop 2 shards, coloured the same, with the same ID
+      }
+    });
+    gr.sr(new Block("Breaking Rod", 2, 1, "Pickaxe", true));
+    gr.sr(new BlockTransparentSpecial("Waypoint Totem", 1, 0, "Axe", false));
+    gr.sr(new BlockTransparentSpecial("World Anchor", 2, 1, "Pickaxe", true){
+      public String[] getTooltip(BlockState state) { return new String[]{"Ensures its surrounding chunk remains loaded."}; }
+      public color getTooltipColour(BlockState state) { return color(0, 255, 255); }
+    });
+    gr.sr(new Block("Portal", 0));
+    gr.sr(new Animation("Fire", 16, 3));
+    gr.sr(new BlockQuantumChest());
+    gr.sr("Quantum Chest Open");
+    gr.sr("Quantum Chest Core");
+    gr.sr(new BlockRedstoneWire());
+    gr.sr("Redstone West");
+    gr.sr("Redstone East");
+    gr.sr("Redstone North");
+    gr.sr("Redstone South");
+    gr.sr("Redstone On");
+    gr.sr("Redstone On West");
+    gr.sr("Redstone On East");
+    gr.sr("Redstone On North");
+    gr.sr("Redstone On South");
+    gr.sr(new BlockTransparentSpecial("Lever", 1, 0, "Pickaxe", false){
+      public StateData getDefaultState() { return new StateData("on", false); }
+      public boolean canConnectRedstone(BlockState state, Direction side) { return true; }
+      public boolean itemHasBlockRender() { return false; }
+      public String getTexture(BlockState state) { return ((boolean)state.getState().get("on")) ? "Lever On" : "Lever"; } // Flip the lever visually when it's on
+      public int getRedstoneOutput(BlockState state, Direction side) { return ((boolean)state.getState().get("on")) ? 16 : 0; } // Output a signal when on
+      public boolean onInteract(BlockState state, boolean shift) {
+        if (shift || !firstClickFrame) return false;
+        state.getState().set("on", !((boolean)state.getState().get("on")));
+        state.markDirty();
+        return true;
+      }
+    });
+    gr.sr("Lever On");
+    gr.sr(new BlockRedstoneInput("Redstone Lamp", 1, 0, "Pickaxe", false){
+      public Light getLight(BlockState state) {
+        return getInputOnSide(state, Direction.ALL) > 0 ? new Light(16) : null;
+      } 
+      public String getTexture(BlockState state) { return getInputOnSide(state, Direction.ALL) > 0 ? "Redstone Lamp On" : "Redstone Lamp"; } // Light up texture when recieving a signal
+      public boolean canConnectRedstone(BlockState state, Direction side) { return true; }
+      public boolean doesBlockLight(BlockState state) { return false; }
+    });
+    gr.sr("Redstone Lamp On");
     
-    gr.srSkip(28);
+    // Blocks with no associated sprite at the current smart registry pointer
+    
+    gr.blocks.register("Fire", new BlockSemiSolid("Fire", true, true){
+       public Light getLight(BlockState state) { return new Light(16); }
+       public void render(BlockState state, float leftX, float topY, int defaultSize) {
+         gr.animations.get("Fire").render(leftX, topY, defaultSize);
+       }
+    });
+    
+    gr.srSkip(18);
     
     // Items
     gr.sr(new ItemTool("Wooden Pickaxe", 32, "Pickaxe", 1, 0.5));
@@ -162,9 +236,9 @@ public class BaseGame implements Mod {
     });
     gr.sr(new Item("Iron Ingot"));
     gr.sr(new Item("Gold Ingot"));
-    gr.sr(new Item("Gunpowder"));
-    gr.sr(new Item("Redstone Dust"));
-    gr.sr(new Item("Glowstone Dust"));
+    gr.sr(new Item("Iron Dust"));
+    gr.sr("Redstone Dust");
+    gr.sr(new Item("Gold Dust"));
     gr.sr(new Item("Sugar"));
     gr.sr(new Item("Brick"));
     gr.sr(new Item("Nether Brick"));
@@ -176,6 +250,37 @@ public class BaseGame implements Mod {
       public boolean hasEnchantmentEffect(ItemStack stack) { return true; }
     });
     gr.sr(new ItemTool("Diamond Shovel", 1024, "Shovel", 4, 2));
+    gr.sr(new Item("Flint"));
+    gr.sr(new ItemDurable("Flint and Steel", 10){
+       public void onUse(ItemStack stack, Object target) {
+         if (target instanceof ArrayList<?>) {
+           BlockState pos = (BlockState)(((ArrayList)target).get(1));
+           // If the block is overridable or air, it can be replaced by a fire block
+           if (pos.isAir() || pos.getBlock().isOverridable(pos)) {
+             // Check if nether portal
+             
+             
+             // Otherwise, make a fire
+             
+             pos.setBlock(gr.blocks.get("Fire"));
+             this.damageItem(stack, 1);
+           }
+         }
+       }
+    });
+    gr.sr(new Item("Quantum Shard"){
+      // Store the pairing + colour in state data
+      public StateData getDefaultState() { return new StateData("id", -1, "r", 0, "g", 0, "b", 0); }
+      public boolean canShowInCreative() { return false; }
+      public PImage render(ItemStack stack, float leftX, float topY, int defaultSize) {
+        tint((int)stack.getState().get("r"), (int)stack.getState().get("g"), (int)stack.getState().get("b"));
+        super.render(stack, leftX, topY, defaultSize);
+        noTint();
+        return null; 
+      }
+      public String[] getTooltip(ItemStack stack) { return new String[]{"ID: " + ((int)stack.getState().get("id"))}; }
+      public color getTooltipColour(ItemStack stack) { return color((int)stack.getState().get("r"), (int)stack.getState().get("g"), (int)stack.getState().get("b")); }
+    });
     
     // Entities
     gr.entities.register("TNT", new EntityTNT());
@@ -204,6 +309,28 @@ public class BaseGame implements Mod {
     gr.cr(getIS("Gold Shovel"), "122", 1, 3, getIS("Gold Ingot"), getIS("Stick"));
     gr.cr(getIS("Diamond Shovel"), "122 ", 1, 3, getIS("Diamond"), getIS("Stick"));
     
+    // Shapeless Crafting / Custom Crafting
+    
+    gr.cr(new ShapelessRecipe(getIS("Flint and Steel"), getIS("Flint"), getIS("Iron Ingot")));
+    gr.cr(new CustomRecipe(){
+      public int getMinTableSize() { return 2; }
+      
+      public ItemStack getFromItems(ArrayList<ItemStack> items) {
+        if (items.size() != 2) return null;
+        
+        boolean foundChest = false;
+        StateData quantumState = null;
+        
+        for (ItemStack item : items) {
+          if       (item.fuzzyMatch(getBlockIS("Chest"))             && !foundChest)          foundChest = true;
+          else if  (item.getItem().getName().equals("Quantum Shard") && quantumState == null) quantumState = item.getState();
+          else     return null;
+        }
+        
+        return getBlockIS("Quantum Chest", 1, quantumState);
+      }
+    });
+    
     //Smelting
     gr.sm(getIS("Iron Ingot"), getBlockIS("Iron Ore"));
     gr.sm(getBlockIS("Stone"), getBlockIS("Cobblestone"));
@@ -218,8 +345,11 @@ public class BaseGame implements Mod {
     gr.ores.register("Lapis",    new OreSeam("Lapis Ore",    0.35, 1,    105, TerrainManager.H, new String[]{},          new String[]{ "Overworld" }));
     gr.ores.register("Emerald",  new OreSeam("Emerald Ore",  0.05, 0.25, 115, TerrainManager.H, new String[]{ "Hills" }, new String[]{ "Overworld" }));
     
+    gr.ores.register("Magma",    new OreSeam("Magma",        1.25, 1.5,  0,   TerrainManager.H, new String[]{ "Hell" },  new String[]{ "Nether" }));
+    
     // Dimensions
     gr.dimensions.register("Overworld", new DimensionOverworld());
+    gr.dimensions.register("Nether", new DimensionNether());
     
     // Structures
     gr.structures.register("Oak Tree", makeStructure(
@@ -233,15 +363,34 @@ public class BaseGame implements Mod {
       "Oak Wood Leaves", "", new StructureBlockDefinition("Oak Wood Log", new StateData("AllowFell", true)), "" 
     ));
     
+    gr.structures.register("Broken Portal One", makeStructure(
+      "1 0 0 0;" +
+      "1 0 0 0;" +
+      "1 0 0 0;" +
+      "1 1 0 0",
+      5, 1,
+      "Obsidian", ""
+    ));
+    
+    gr.structures.register("Broken Portal Two", makeStructure(
+      "0 0 1 1;" +
+      "0 0 0 1;" +
+      "0 0 0 1;" +
+      "0 1 0 1",
+      5, 1,
+      "Obsidian", ""
+    ));
+    
     // Biomes
     Vegetation[] typicalVegetation = new Vegetation[]{
       new Vegetation("Rose", 1, 1),
       new Vegetation("Dandelion", 1, 1),
       new Vegetation("Tall Grass", 2, 1)
     };
-    gr.biomes.register("Hills",     new BiomeBasic("Hills",  0.25, 0.75, "Grass", 2, typicalVegetation, 0.4, new Structure[0]));
-    gr.biomes.register("Plains",    new BiomeBasic("Plains", 0.25, 0.35, "Grass", 1, typicalVegetation, 1, new Structure[]{ gr.structures.get("Oak Tree") }));
-    gr.biomes.register("FlatGrass", new BiomeSuperflat(new String[]{ "Air", "Grass", "Dirt", "Bedrock" }, new int[] { 32, 33, 127, 128 }));
+    gr.biomes.register("Hills",          new BiomeBasic("Hills",  0.25, 0.75, "Grass", 2, typicalVegetation, 0.4, new Structure[0]));
+    gr.biomes.register("Plains",         new BiomeBasic("Plains", 0.25, 0.35, "Grass", 1, typicalVegetation, 1, new Structure[]{ gr.structures.get("Oak Tree") }));
+    gr.biomes.register("Redstone Ready", new BiomeSuperflat(new String[]{ "Air", "Sandstone", "Bedrock" }, new int[] { 32, 127, 128 }));
+    gr.biomes.register("Hell",           new BiomeBasic("Hell",  0.25, 0.75, "Netherrack", 2, typicalVegetation, 0.4, new Structure[]{ gr.structures.get("Broken Portal One"), gr.structures.get("Broken Portal Two") }));
     
     // GUI
     gr.sprites.register("GUI Arrow", spritesheet.get(79, 487, 12, 9));
@@ -293,7 +442,7 @@ public class BaseGame implements Mod {
       String name = state.getBlock().getThesaurusName(state);
       if (name.equals("Log") || name.equals("Leaves")) {
         state.dropItems();
-        if (name.equals("Log")) { println(x, y); state.setState(new StateData("AllowFell", false)); }
+        if (name.equals("Log")) { state.setState(new StateData("AllowFell", false)); }
         state.setBlock(gr.blocks.get("Air"));
         if (dir != Direction.NORTH) recursiveBreak(x,     y - 1, Direction.SOUTH); // Up
         if (dir != Direction.EAST)  recursiveBreak(x + 1, y,     Direction.WEST);  // Right 
@@ -340,11 +489,12 @@ public class BaseGame implements Mod {
     }
     
     public StateData getDefaultState() { return new StateData("Item", getEmptyIS()); }
-    public void onCreate(BlockState state) { clearInput(); }
+    public void onCreate(BlockState state, boolean isLoad) { clearInput(); }
     public boolean isCollidable(BlockState state) { return false; }
     public boolean isOpaque(BlockState state) { return false; }
     public boolean doesBlockLight(BlockState state) { return false; }
     public int getRequiredSortLayer() { return 1; }
+    public boolean itemHasBlockRender() { return false; }
     
     public boolean onInteract(BlockState state, boolean shift) {
       ItemStack held = player.getHeldItem();
@@ -403,6 +553,7 @@ public class BaseGame implements Mod {
     public StateData getDefaultState() { return new StateData("Items", new Container(9 * 3), "Left", false, "Right", false); }
     public int getRequiredSortLayer() { return 1; }
     public boolean requiresSaveOnUnload() { return true; }
+    public boolean itemHasBlockRender() { return false; }
     
     public void render(BlockState state, float leftX, float topY, int defaultSize) {
       String baseTexture = "Chest";
@@ -423,7 +574,7 @@ public class BaseGame implements Mod {
       if (neighbourPos.x == pos.x + 1) formDoubleChest(state, neighbour, "Right");
     }
     
-    private void formDoubleChest(StateData state, BlockState neighbour, String side) {
+    protected void formDoubleChest(StateData state, BlockState neighbour, String side) {
       String otherSide = side.equals("Left") ? "Right" : "Left";
       if (neighbour.getBlock().getName().equals("Chest")) { // If the new block is a chest
         if ((boolean)state.get(otherSide)) { // If there is a chest on the other side, we're already a double chest!
@@ -460,7 +611,7 @@ public class BaseGame implements Mod {
         right = null;
       }
       
-      guiUtils.openGui(new ChestGUI(left, right));
+      guiUtils.openGui(new ChestGUI(left, right, block.getPosition(), "Chest"));
       return true;
     }
     
@@ -475,35 +626,88 @@ public class BaseGame implements Mod {
       return items;
     }
     
-    public class ChestGUI extends GUI {
-      
-      private Container left;
-      private Container right;
-     
-      public ChestGUI(Container left, Container right) {
-        this.left = left;
-        this.right = right;
-      }
-      
-      public void render() {
-        guiUtils.drawModalOverlay();
-        int offset = right == null ? 0 : 150;
-        PVector tl = guiUtils.drawTexturedModalRect(486, 532 + offset);
-        guiUtils.drawText(tl.x + 16, tl.y + 16, (right == null ? "" : "Double ") + "Chest", 64, 64, 64, false, false);
-        guiUtils.drawContainer(tl.x + 16, tl.y + 48, left, 9, true);
-        if (right != null) guiUtils.drawContainer(tl.x + 16, tl.y + 198, right, 9, true);
-        guiUtils.drawText(tl.x + 16, tl.y + 214 + offset, "Inventory", 64, 64, 64, false, false);
-        guiUtils.drawPlayerInventory(tl.x + 16, tl.y + 246 + offset);
-      }
-      
-      public boolean isMember(BlockState block) {
-        if (!(block.getBlock() instanceof BlockChest)) return false;
-        Container container = (Container)block.getState().get("Items");
-        return container == left || container == right;
-      }
-      
+  }
+  
+  // So that when you open one quantum chest, you can see the others open
+  private Set<Integer> quantumChestsOpen = new HashSet<Integer>();
+  
+  public class BlockQuantumChest extends Block {
+    
+    public BlockQuantumChest() {
+      super("Quantum Chest", 1, 0, "Axe", false);
     }
     
+    public StateData getDefaultState() { return new StateData("id", -1, "r", 0, "g", 0, "b", 0); }
+    public int getRequiredSortLayer() { return 1; }
+    public boolean doesPreserveState(BlockState state) { return true; }
+    public String[] getTooltip(BlockState state) { return new String[]{"ID: " + ((int)state.getState().get("id"))}; }
+    public color getTooltipColour(BlockState state) { return color((int)state.getState().get("r"), (int)state.getState().get("g"), (int)state.getState().get("b")); }
+    public boolean canShowInCreative() { return false; }
+    
+    public void render(BlockState state, float leftX, float topY, int defaultSize) {
+      image(gr.sprites.get("Quantum Chest"), leftX, topY, defaultSize, defaultSize);
+      tint((int)state.getState().get("r"), (int)state.getState().get("g"), (int)state.getState().get("b"));
+      image(gr.sprites.get("Quantum Chest Core"), leftX, topY, defaultSize, defaultSize);
+      noTint();
+      if (quantumChestsOpen.contains((int)state.getState().get("id"))) {
+        image(gr.sprites.get("Quantum Chest Open"), leftX, topY - (0.6875 * defaultSize), defaultSize, defaultSize);
+      }
+    }
+    
+    public boolean onInteract(BlockState block, boolean shift) {
+      if (shift) return false;
+      
+      final int id = (int)block.getState().get("id");
+      
+      // Get the container from the world data, using our ID
+      Container items = (Container)terrainManager.worldData.get("quantumChest" + id);
+      
+      // If there is no container for this ID yet (e.g. first time opening either side), make one
+      if (items == null) {
+        items = new Container(9 * 3);
+        terrainManager.worldData.set("quantumChest" + id, items);
+      }
+      
+      // So that other quantum chests appear open when we open this one
+      quantumChestsOpen.add(id);
+      
+      // Show the GUI
+      guiUtils.openGui(new ChestGUI(items, null, block.getPosition(), "Quantum Chest (" + id + ")"){
+        public void onClosed() { quantumChestsOpen.remove(id); }
+      });
+      return true;
+    }
+  }
+  
+  public class ChestGUI extends GUI {
+      
+    private Container left;
+    private Container right;
+    private PVector pos;
+    private String name;
+   
+    public ChestGUI(Container left, Container right, PVector pos, String name) {
+      this.left = left;
+      this.right = right;
+      this.pos = pos;
+      this.name = name;
+    }
+    
+    public void render() {
+      guiUtils.drawModalOverlay();
+      int offset = right == null ? 0 : 150;
+      PVector tl = guiUtils.drawTexturedModalRect(486, 532 + offset);
+      guiUtils.drawText(tl.x + 16, tl.y + 16, (right == null ? "" : "Double ") + name, 64, 64, 64, false, false);
+      guiUtils.drawContainer(tl.x + 16, tl.y + 48, left, 9, true);
+      if (right != null) guiUtils.drawContainer(tl.x + 16, tl.y + 198, right, 9, true);
+      guiUtils.drawText(tl.x + 16, tl.y + 214 + offset, "Inventory", 64, 64, 64, false, false);
+      guiUtils.drawPlayerInventory(tl.x + 16, tl.y + 246 + offset);
+    }
+    
+    public boolean isMember(BlockState block) {
+      return pos.equals(block.getPosition());
+    }
+      
   }
   
   public class BlockFurnace extends Block {
@@ -522,6 +726,7 @@ public class BaseGame implements Mod {
     public int getRequiredSortLayer() { return 1; }
     public int getTickChance(BlockState state) { return 0; }
     public String getTexture(BlockState state) { return "Furnace" + (((float)(state.getState().get("BurnTime"))) > 0 ? " Lit" : ""); }
+    public boolean itemHasBlockRender() { return false; }
     
     public StateData getDefaultState() {
       
@@ -678,7 +883,6 @@ public class BaseGame implements Mod {
         StateData st = state.getState();
         outputContainer.items[0] = (ItemStack)st.get("Output");
         guiUtils.drawText(tl.x + 16, tl.y + 16, state.getBlock().getVisibleName(state), 64, 64, 64, false, false);
-        guiUtils.drawContainer(tl.x + 32, tl.y + 48, inputContainer, 1, true);
         guiUtils.sprite("GUI Arrow", tl.x + 96, tl.y + 48, 60, 48);
         int progress = (int)st.get("Progress");
         int speed = (int)st.get("Speed");
@@ -686,7 +890,6 @@ public class BaseGame implements Mod {
           int progressX = round((12 / (float)speed) * progress);
           guiUtils.sprite("GUI Arrow Filled", tl.x + 96, tl.y + 48, progressX * 5, 48, 0, 0, progressX, 9);
         }
-        guiUtils.drawContainer(tl.x + 172, tl.y + 48, outputContainer, 1, true);
         guiUtils.sprite("GUI Fire", tl.x + 34, tl.y + 110, 44, 40);
         float maxBurnTime = (float)st.get("MaxBurnTime");
         float burnTime = (float)st.get("BurnTime");
@@ -694,8 +897,11 @@ public class BaseGame implements Mod {
           int fireY = round((10 / maxBurnTime) * burnTime);
           guiUtils.sprite("GUI Fire Filled", tl.x + 34, tl.y + 110 + ((10 - fireY) * 4), 44, (fireY * 4), 0, 10 - fireY, 11, fireY);
         }
-        guiUtils.drawContainer(tl.x + 32, tl.y + 161, fuelContainer, 1, true);
         guiUtils.drawText(tl.x + 16, tl.y + 225, "Inventory", 64, 64, 64, false, false);
+        
+        guiUtils.drawContainer(tl.x + 172, tl.y + 48, outputContainer, 1, true);
+        guiUtils.drawContainer(tl.x + 32, tl.y + 48, inputContainer, 1, true);
+        guiUtils.drawContainer(tl.x + 32, tl.y + 161, fuelContainer, 1, true);
         guiUtils.drawPlayerInventory(tl.x + 16, tl.y + 257);
       }
       
@@ -733,10 +939,10 @@ public class BaseGame implements Mod {
         guiUtils.drawModalOverlay();
         PVector tl = guiUtils.drawTexturedModalRect(486, 532);
         guiUtils.drawText(tl.x + 16, tl.y + 16, "Crafting", 64, 64, 64, false, false);
-        guiUtils.drawContainer(tl.x + 16, tl.y + 48, grid, 3, true);
         guiUtils.sprite("GUI Arrow", tl.x + 176, tl.y + 96, 60, 48);
-        guiUtils.drawContainer(tl.x + 252, tl.y + 96, result, 1, true);
         guiUtils.drawText(tl.x + 16, tl.y + 214, "Inventory", 64, 64, 64, false, false);
+        guiUtils.drawContainer(tl.x + 252, tl.y + 96, result, 1, true);
+        guiUtils.drawContainer(tl.x + 16, tl.y + 48, grid, 3, true);
         guiUtils.drawPlayerInventory(tl.x + 16, tl.y + 246);
       }
       
@@ -747,6 +953,101 @@ public class BaseGame implements Mod {
         }
       }
       
+    }
+    
+  }
+  
+  public class BlockRedstoneWire extends BlockRedstoneInput {
+    
+    public BlockRedstoneWire() {
+      super("Redstone", 1, 0, "Pickaxe", false); 
+    }
+    
+    public String getItemTexture(BlockState state) { return "Redstone Dust"; }
+    public boolean itemHasBlockRender() { return false; }
+    public boolean isOpaque(BlockState state) { return false; }
+    public boolean doesBlockLight(BlockState state) { return false; }
+    public int getRequiredSortLayer() { return 1; }
+    public boolean requiresSaveOnUnload() { return true; }
+    public boolean canConnectRedstone(BlockState state, Direction side) { return true; }
+    public boolean isCollidable(BlockState state) { return true; }
+    public void onNeighbourChanged(BlockState state, BlockState neighbour) { connectToOthers(state); }
+    public void onCreate(BlockState state, boolean isLoad) { if (!isLoad) connectToOthers(state); }
+    
+    public void onTick(BlockState state) {
+      super.onTick(state);
+      
+      StateData data = state.getState();
+      
+      if ((boolean)data.get("hasChanged")) {
+        int value = 0;
+        
+        int north = (int)data.get("north");
+        int east  = (int)data.get("east");
+        int south = (int)data.get("south");
+        int west  = (int)data.get("west");
+        
+        if (north > 0 && north - 1 > value) value = north - 1;
+        if (east  > 0 && east  - 1 > value) value = east  - 1;
+        if (south > 0 && south - 1 > value) value = south - 1;
+        if (west  > 0 && west  - 1 > value) value = west  - 1;
+        
+        data.set("value", value);
+      }
+    }
+    
+    public int getRedstoneOutput(BlockState state, Direction side) { return (int)state.getState().get("value"); }
+    
+    public void render(BlockState state, float leftX, float topY, int defaultSize) {
+      super.render(state, leftX, topY, defaultSize); // Render the middle of the block
+      
+      StateData data = state.getState();
+      
+      boolean north = (boolean)data.get("connNorth");
+      boolean east  = (boolean)data.get("connEast");
+      boolean south = (boolean)data.get("connSouth");
+      boolean west  = (boolean)data.get("connWest");
+      
+      if (north) image(gr.sprites.get("Redstone North"), leftX, topY, defaultSize, defaultSize);
+      if (east)  image(gr.sprites.get("Redstone East"),  leftX, topY, defaultSize, defaultSize);
+      if (south) image(gr.sprites.get("Redstone South"), leftX, topY, defaultSize, defaultSize);
+      if (west)  image(gr.sprites.get("Redstone West"),  leftX, topY, defaultSize, defaultSize);
+      
+      int value = (int)data.get("value");
+      
+      if (value > 0) {
+        tint(255, 255, 255, 255 * (value / 16.0f));
+        image(gr.sprites.get("Redstone On"), leftX, topY, defaultSize, defaultSize);
+        if (north) image(gr.sprites.get("Redstone On North"), leftX, topY, defaultSize, defaultSize);
+        if (east)  image(gr.sprites.get("Redstone On East"),  leftX, topY, defaultSize, defaultSize);
+        if (south) image(gr.sprites.get("Redstone On South"), leftX, topY, defaultSize, defaultSize);
+        if (west)  image(gr.sprites.get("Redstone On West"),  leftX, topY, defaultSize, defaultSize);
+        noTint();
+      }
+    } 
+    
+    public StateData getDefaultState() {
+      StateData data = super.getDefaultState();
+      data.set("connNorth", false);
+      data.set("connEast", false);
+      data.set("connSouth", false);
+      data.set("connWest", false);
+      data.set("value", 0);
+      return data;
+    } 
+    
+    public void connectToOthers(BlockState state) {
+      StateData data = state.getState();
+      data.set("connNorth", isConnection(state, Direction.NORTH,  0, -1));
+      data.set("connEast",  isConnection(state, Direction.EAST,   1,  0));
+      data.set("connSouth", isConnection(state, Direction.SOUTH,  0,  1));
+      data.set("connWest",  isConnection(state, Direction.WEST,  -1,  0));
+    }
+    
+    private boolean isConnection(BlockState state, Direction side, int xOff, int yOff) {
+      BlockState other = getBlockInDirection(state, xOff, yOff); 
+      if (other == null) return false;
+      return other.getBlock().canConnectRedstone(other, side);
     }
     
   }
@@ -765,7 +1066,19 @@ public class BaseGame implements Mod {
         new String[]{"Desert", "Desert", "Plains", "Tundra"}  // driest
         //           hottest                        coldest
       };*/
-      return new String[][]{ new String[]{ "Plains" } };
+      return new String[][]{ new String[]{ terrainManager.isSuperflat() ? "Redstone Ready" : "Plains" } };
+    }
+    
+  }
+  
+  public class DimensionNether implements Dimension {
+    
+    public String getName() {
+      return "Nether";
+    }
+    
+    public String[][] getWhittakerDiagram() {
+      return new String[][]{ new String[]{ "Hell" } };
     }
     
   }

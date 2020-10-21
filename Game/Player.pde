@@ -12,6 +12,7 @@ public class EntityPlayer extends Entity {
   public Container inventory;
   public Container armour;
   public Container hotbar;
+  public Container creative;
   public int hotbarSlot = 0;
   
   public EntityPlayer(PVector pos, String dimension) {
@@ -27,6 +28,7 @@ public class EntityPlayer extends Entity {
     inventoryGui = new InventoryGUI();
     
     inventory = new Container(9 * 3);
+    creative = new CreativeInventory();
     hotbar = new Container(9);
     armour = new Container(4){
       public boolean slotCanAcceptItem(ItemStack stack, int i) {
@@ -34,7 +36,7 @@ public class EntityPlayer extends Entity {
       }
     };
     
-    suctionBox = new SuctionBox(new float[]{ pos.x, pos.y, pos.x + BlockState.BLOCK_SIZE, pos.y + BlockState.BLOCK_SIZE }){
+    suctionBox = new SuctionBox(new float[]{ pos.x - BlockState.BLOCK_SIZE, pos.y - BlockState.BLOCK_SIZE, pos.x + BlockState.BLOCK_SIZE, pos.y + BlockState.BLOCK_SIZE }){
       public boolean suck(ItemStack item) {
         boolean success       = inventory.addItem(item, false);
         if (!success) success = hotbar.addItem(item, false);
@@ -44,20 +46,6 @@ public class EntityPlayer extends Entity {
       }
     };
     terrainManager.addSuctionBox(suctionBox);
-    
-    inventory.setAtSlot(getIS("Gold Pickaxe"), 0);
-    inventory.setAtSlot(getIS("Gold Shovel"), 1);
-    inventory.setAtSlot(getIS("Stick", 64), 2);
-    inventory.setAtSlot(getIS("Coal", 64), 3);
-    inventory.setAtSlot(getBlockIS("Iron Ore", 64), 4);
-    inventory.setAtSlot(getBlockIS("Furnace", 64), 5);
-    inventory.setAtSlot(getBlockIS("Slime", 64), 6);
-    inventory.setAtSlot(getBlockIS("Ice", 64), 7);
-    inventory.setAtSlot(getBlockIS("Path", 64), 8);
-    inventory.setAtSlot(getBlockIS("Chest", 64), 9);
-    inventory.setAtSlot(getBlockIS("Sand", 64), 10);
-    inventory.setAtSlot(getBlockIS("Item Frame", 64), 11);
-    inventory.setAtSlot(getBlockIS("TNT", 64), 12);
   }
   
   public EntityPlayer() {}
@@ -196,25 +184,40 @@ public class InventoryGUI extends GUI {
   
   private CraftingResult craftingResult = new CraftingResult();
   private CraftingGrid crafting = new CraftingGrid(2, craftingResult);
-  
+  private GUIScrollbar creativeScroll = null;
   
   public void render() {
     guiUtils.drawModalOverlay();
-    PVector corner = guiUtils.drawTexturedModalRect(486, 532);
     
-    guiUtils.drawContainer(corner.x + 16, corner.y + 16, player.armour, 1, true);
+    if (terrainManager.isCreative()) {
+      PVector corner = guiUtils.drawTexturedModalRect(532, 432);
+      guiUtils.drawText(corner.x + 16, corner.y + 16, "Creative", 64, 64, 64, false, false);
+      
+      if (creativeScroll == null) creativeScroll = new GUIScrollbar(corner.x + 467, 49, 16 * 9, corner.y + 48, 300, (player.creative.getSize() / 9) - 6);
+      int offset = creativeScroll.getTopRow() * 9;
+      creativeScroll.render();
+      
+      guiUtils.drawContainer(corner.x + 16, corner.y + 48, player.creative, 9, true, offset, offset + (9 * 6));
+      guiUtils.drawContainer(corner.x + 16, corner.y + 16 + ((guiUtils.SLOT_SIZE + 2) * 7), player.hotbar, 9, true);
+    }
+    else {
+      PVector corner = guiUtils.drawTexturedModalRect(484, 532);
+      guiUtils.drawContainer(corner.x + 16, corner.y + 16, player.armour, 1, true);
     
-    fill(0);
-    rect(corner.x + 16 + guiUtils.SLOT_SIZE, corner.y + 16, 132, 200);
+      fill(0);
+      rect(corner.x + 16 + guiUtils.SLOT_SIZE, corner.y + 16, 132, 200);
+      
+      player.render(corner.x + guiUtils.SLOT_SIZE + 32, corner.y + 32);
+      
+      guiUtils.drawText(corner.x + guiUtils.SLOT_SIZE + 164, corner.y + 16, "Crafting", 64, 64, 64, false, false);
+      guiUtils.sprite("GUI Arrow", corner.x + (guiUtils.SLOT_SIZE * 3) + 180 , corner.y + 48 + (guiUtils.SLOT_SIZE / 2), 60, 48);
+      guiUtils.drawText(corner.x + 16, corner.y + 232, "Inventory", 64, 64, 64, false, false);
+      guiUtils.drawPlayerInventory(corner.x + 16, corner.y + 264);
+      guiUtils.drawContainer(corner.x + (guiUtils.SLOT_SIZE * 3) + 256 , corner.y + 48 + (guiUtils.SLOT_SIZE / 2), craftingResult, 1, true);
+      guiUtils.drawContainer(corner.x + guiUtils.SLOT_SIZE + 164, corner.y + 48, crafting, 2, true);
+    }
     
-    player.render(corner.x + guiUtils.SLOT_SIZE + 32, corner.y + 32);
     
-    guiUtils.drawText(corner.x + guiUtils.SLOT_SIZE + 164, corner.y + 16, "Crafting", 64, 64, 64, false, false);
-    guiUtils.drawContainer(corner.x + guiUtils.SLOT_SIZE + 164, corner.y + 48, crafting, 2, true);
-    guiUtils.sprite("GUI Arrow", corner.x + (guiUtils.SLOT_SIZE * 3) + 180 , corner.y + 48 + (guiUtils.SLOT_SIZE / 2), 60, 48);
-    guiUtils.drawContainer(corner.x + (guiUtils.SLOT_SIZE * 3) + 256 , corner.y + 48 + (guiUtils.SLOT_SIZE / 2), craftingResult, 1, true);
-    guiUtils.drawText(corner.x + 16, corner.y + 232, "Inventory", 64, 64, 64, false, false);
-    guiUtils.drawPlayerInventory(corner.x + 16, corner.y + 264);
   }
   
 }

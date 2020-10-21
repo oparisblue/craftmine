@@ -8,6 +8,8 @@ public class GameRegistry {
   public Registry<OreSeam>   ores       = new Registry<OreSeam>("Ore");
   public Registry<Dimension> dimensions = new Registry<Dimension>("Dimension");
   public Registry<Structure> structures = new Registry<Structure>("Structure");
+  public Registry<Animation> animations = new Registry<Animation>("Animation");
+  public Registry<StateData> worldData  = new Registry<StateData>("World Data");
   
   public ArrayList<CraftingRecipe> crafting = new ArrayList<CraftingRecipe>();
   public ArrayList<SmeltingRecipe> smelting = new ArrayList<SmeltingRecipe>();
@@ -24,6 +26,7 @@ public class GameRegistry {
         rect(leftX + halfSize, topY + halfSize, halfSize, halfSize);
       }
       public ArrayList<ItemStack> getDroppedItems(BlockState state) { return getStacks(); }
+      public boolean canShowInCreative() { return false; }
     });
     biomes.register("Missing Biome", new BiomeSuperflat(new String[]{ "Air", "Missing Block", "Bedrock" }, new int[] { 32, 127, 128 }));
   }
@@ -43,6 +46,8 @@ public class GameRegistry {
   }
   
   public void sr(Object obj) {
+    boolean doFinalSkip = true;
+    
     if (obj instanceof Block) {
       Block block = (Block)obj;
       blocks.register(block.getName(), block);
@@ -53,23 +58,30 @@ public class GameRegistry {
       items.register(item.getName(), item);
       sprites.register(item.getName(), sprite(nextX, nextY, spritesheet));
     }
+    else if (obj instanceof Animation) {
+      Animation ani = (Animation)obj;
+      PImage[] frames = new PImage[ani.getLength()];
+      for (int i = 0; i < frames.length; i++) {
+        frames[i] = sprite(nextX, nextY, spritesheet);
+        srSkip(1);
+      }
+      ani.setFrames(frames);
+      animations.register(ani.getName(), ani);
+      doFinalSkip = false;
+    }
     else if (obj instanceof String) {
        sprites.register((String) obj, sprite(nextX, nextY, spritesheet));
     }
     else {
-      throw new Error("GameRegistry: Can only smart-register blocks, items and sprites!"); 
+      throw new Error("GameRegistry: Can only smart-register blocks, items, animations and sprites!"); 
     }
-    nextX++;
-    if (nextX * SPRITE_SIZE >= spritesheet.width) {
-      nextX = 0;
-      nextY++;
-    }
+    if (doFinalSkip) srSkip(1);
   }
   
   public void srSkip(int amt) {
     for (int i = 0; i < amt; i++) { 
       nextX++;
-      if (nextX * SPRITE_SIZE > spritesheet.width) {
+      if (nextX * SPRITE_SIZE >= spritesheet.width) {
         nextX = 0;
         nextY++;
       }
@@ -118,11 +130,55 @@ public class Registry<T> {
     return objList; 
   }
   
+  public Set<String> keys() {
+    return nameLookup.keySet(); 
+  }
+  
 }
 
 public PImage sprite(int x, int y, PImage spritesheet) {
   int size = GameRegistry.SPRITE_SIZE;
   return spritesheet.get(x * size, y * size, size, size);
+}
+
+public class Animation {
+ 
+  private PImage[] frames = new PImage[]{};
+  private int len;
+  private int speed;
+  private int currentFrame = 0;
+  private int counter = 0;
+  private String name;
+  
+  public Animation(String name, int len, int speed) {
+    this.name = name;
+    this.len = len;
+    this.speed = speed;
+  }
+  
+  public String getName() {
+    return name;
+  }
+  
+  public int getLength() {
+    return len;
+  }
+  
+  public void setFrames(PImage[] frames) {
+    if (frames.length == len) this.frames = frames; 
+  }
+  
+  public void nextFrame() {
+    if (++counter >= speed) {
+      currentFrame = (currentFrame + 1) % len; 
+      counter = 0;
+    }
+  }
+  
+  public void render(float leftX, float topY, int size) {
+    image(frames[currentFrame], leftX, topY, size, size); // Render the current frame's texture to the given location.
+  }
+  
 }
 
 public interface CraftingRecipe {
@@ -251,39 +307,27 @@ public class ShapedRecipe implements CraftingRecipe {
   
 }
 
-public class ShapelessRecipe implements CraftingRecipe {
+/**
+* If all of the items match a predicate, return some result.
+*/
+public abstract class CustomRecipe implements CraftingRecipe {
   
-  ItemStack result;
-  ItemStack[] recipe;
- 
-  public ShapelessRecipe(ItemStack result, ItemStack... recipe) {
-    this.result = result;
-    this.recipe = recipe;    
-  }
-  
-  public int getMinTableSize() {
-    return ceil(sqrt(recipe.length));
-  }
+  /**
+  * Given the items, return <em>some</em> result. If null, then no available craft.
+  */
+  public abstract ItemStack getFromItems(ArrayList<ItemStack> items);
   
   public ItemStack getFromTable(Container table) {
-    ArrayList<ItemStack> testRecipe = new ArrayList<ItemStack>();
-    for (ItemStack stack : recipe) {
-      testRecipe.add(stack); 
-    }
+    ArrayList<ItemStack> items = new ArrayList<ItemStack>();
+    
+    // Add all of the items to the arraylist as long as they are not empty.
     for (int i = 0; i < table.getSize(); i++) {
       ItemStack item = table.getAtSlot(i);
-      if (item.isEmpty()) continue;
-      boolean done = false;
-      for (ItemStack stack : testRecipe) {
-        if (stack.fuzzyMatch(item)) {
-          testRecipe.remove(stack);
-          done = true;
-          break;
-        }
-      }
-     if (!done) return getEmptyIS();
+      if (!item.isEmpty()) items.add(item);
     }
-    return testRecipe.size() == 0 ? new ItemStack(result) : getEmptyIS();
+    
+    ItemStack result = getFromItems(items);
+    return result == null ? getEmptyIS() : result;
   }
   
   public void crafted(Container table) {
@@ -291,6 +335,37 @@ public class ShapelessRecipe implements CraftingRecipe {
       ItemStack stack = table.getAtSlot(i);
       if (!stack.isEmpty()) stack.addStackSize(-1);
     }
+  }
+  
+}
+
+public class ShapelessRecipe extends CustomRecipe {
+  
+  ItemStack result;
+  ArrayList<ItemStack> recipe;
+ 
+  public ShapelessRecipe(ItemStack result, ItemStack... recipe) {
+    this.result = result;
+    this.recipe = new ArrayList<ItemStack>();
+    for (ItemStack item : recipe) this.recipe.add(item);
+  }
+  
+  public int getMinTableSize() {
+    return ceil(sqrt(recipe.size()));
+  }
+  
+  public ItemStack getFromItems(ArrayList<ItemStack> items) {
+    int matches = 0;
+    
+    if (items.size() != recipe.size()) return null;
+    
+    for (ItemStack item : items) {
+      for (ItemStack recipeItem : recipe) {
+        if (recipeItem.fuzzyMatch(item)) matches++;
+      }
+    }
+    
+    return matches == recipe.size() ? result : null;
   }
   
 }

@@ -70,6 +70,13 @@ public class Block {
   public String getItemTexture(BlockState state) { return name; } // The item texture will usually just be the block texture.
   
   /**
+  * Use the <code>render()</code> method for this block to also render its item, or simply draw the defined texture instead?
+  * <p>Using <code>render()</code> has many advantages, however it can cause nasty errors if your block doesn't have its
+  * expected state while in item form.</p>
+  */
+  public boolean itemHasBlockRender() { return true; } // It's fine to render the items for most blocks using their in-world render call.
+  
+  /**
   * Called to render this block in a custom way using the Processing drawing functions, rather than relying on the default
   * renderer.
   * <p><strong>NOTE:</strong> If this block will render in a space bigger than one square, it would make sense to return
@@ -219,11 +226,21 @@ public class Block {
   public String[] getTooltip(BlockState state) { return new String[]{}; } // Most blocks do not need extra tooltip info.
   
   /**
+  * Used to define the colour of the name of a block's tooltip. Subsequent lines (e.g. those added with <code>getTooltip()</code>) are always gray.
+  * @param state The state (position and state object) of the block.
+  * @return The colour to use for its name in the tooltip.
+  */
+  public color getTooltipColour(BlockState state) { return color(255, 255, 255); } // Most blocks have a white title
+  
+  /**
   * Get all of the items which should drop when this block is broken. <code>getAsItem();</code> gets the item for this block.
   * @param state The state (position and state object) of the block.
   * @return The array of items to drop.
   */
-  public ArrayList<ItemStack> getDroppedItems(BlockState state) { return getStacks(getBlockIS(getName())); } // Most blocks just drop themselves.
+  public ArrayList<ItemStack> getDroppedItems(BlockState state) {
+    // Return ourselves; preserving state if that flag is true
+    return getStacks(getBlockIS(getName(), 1, doesPreserveState(state) ? state.getState() : new StateData()));
+  }
   
   /**
   * Get the maximum amount of times this block can stack as an item.
@@ -250,8 +267,9 @@ public class Block {
   /**
   * Called just as the block has been set at a new block state.
   * @param state The state (position and state object) of the block to get the name for.
+  * @param isLoad Is the creation caused by a level load?
   */
-  public void onCreate(BlockState state) { } // Most blocks do nothing here
+  public void onCreate(BlockState state, boolean isLoad) { } // Most blocks do nothing here
   
   /**
   * Can you see the background layer behind this block?
@@ -302,7 +320,7 @@ public class Block {
   * @param state The state (position and state object) of the block.
   * @return <code>true</code> if placement should preserve state.
   */
-  public boolean doesPlacementPreserveState(BlockState state) { return false; }
+  public boolean doesPreserveState(BlockState state) { return false; }
   
   /**
   * If true, this block is marked (on chunk load), meaning that when the chunk is unloaded it will get saved.
@@ -311,6 +329,28 @@ public class Block {
   * @return <code>true</code> if this block is always marked dirty.
   */
   public boolean requiresSaveOnUnload() { return false; }
+  
+  /**
+  * Can redstone be connected to the given side of this block?
+  * @param state The state (position and state object) of the block.
+  * @param side The side of the block to attempt to connect.
+  * @return <code>true</code> if redstone can be connected to that side.
+  */
+  public boolean canConnectRedstone(BlockState state, Direction side) { return false; } // Most blocks can't connect to redstone
+  
+  /**
+  * Get the redstone output for the given side.
+  * @param state The state (position and state object) of the block.
+  * @param side The side of the block to attempt to connect.
+  * @return A value between 0 (off) and 15 (full power), which represents the amount of power being emitted on the given side.
+  */
+  public int getRedstoneOutput(BlockState state, Direction side) { return 0; } // Most blocks don't output a redstone signal
+  
+  /**
+  * Should this block appear in the creative menu? Most blocks should, but this lets you turn it off for e.g. technical blocks.
+  * @return <code>true</code> if it appears in the menu, <code>false</code> otherwise.
+  */
+  public boolean canShowInCreative() { return true; } // Most blocks should be shown in creative
   
 }
 
@@ -379,14 +419,14 @@ public class BlockState implements Collider {
     if (!safeMode) this.block.onBeforeDestroy(this);
     this.block = block;
     this.state = state;
-    this.block.onCreate(this);
+    this.block.onCreate(this, safeMode);
     
     // If this block needs to always get saved (e.g. like a furnace), mark it dirty now.
     if (block.requiresSaveOnUnload()) markDirty();
     
     // Only bother recalculating the lighting if neither of the blocks involved are lights, because otherwise
     // the lighting will end up just getting recalculated automatically anyways.
-    // Also, blocks on the background layer do not affect lighting (e.g.. by blocking it), so we never need to
+    // Also, blocks on the background layer do not affect lighting (e.g. by blocking it), so we never need to
     // recalculate in that case.
     if (recalcLighting && block.getLight(this) == null && pos.z == 1) terrainManager.requestLightingRecalc();
     
@@ -456,7 +496,15 @@ public class BlockState implements Collider {
   }
   
   public void dealDamage(ItemStack stack) {
+    
+    // Always break the block if in creative mode
+    if (terrainManager.isCreative()) {
+      setBlock(gr.blocks.get("Air"));
+      return;
+    }
+    
     float hardness = block.getHardness(this);
+    
     // Unbreakable blocks need not bother with anything else
     if (hardness == -1) return;
     
@@ -531,6 +579,7 @@ public class BlockAir extends Block {
   public boolean isTargetable(BlockState state) { return false; }
   public boolean isOpaque(BlockState state) { return false; }
   public boolean doesBlockLight(BlockState state) { return false; }
+  public boolean canShowInCreative() { return false; }
   
 }
 
@@ -549,7 +598,7 @@ public class BlockSemiSolid extends Block {
     this.overridable = overridable;
   }
   
-  public void onCreate(BlockState state) { clearInput(); }
+  public void onCreate(BlockState state, boolean isLoad) { clearInput(); }
   public boolean isCollidable(BlockState state) { return false; }
   public boolean isOpaque(BlockState state) { return false; }
   public boolean doesBlockLight(BlockState state) { return false; }
@@ -573,6 +622,22 @@ public class BlockSemiSolid extends Block {
   
 }
 
+public class BlockTransparentSpecial extends Block {
+  
+   public BlockTransparentSpecial(String name, float hardness) {
+     super(name, hardness);
+   }
+  
+   public BlockTransparentSpecial(String name, float hardness, int miningLevel, String toolType, boolean requireToolType) {
+     super(name, hardness, miningLevel, toolType, requireToolType);
+   }
+  
+   public int getRequiredSortLayer() { return 1; }
+   public boolean isOpaque(BlockState state) { return false; }
+   public boolean doesBlockLight(BlockState state) { return false; }
+   public boolean isCollidable(BlockState state) { return false; }  
+}
+
 public class BlockFalling extends Block {
   
   public BlockFalling(String name, float hardness) {
@@ -583,7 +648,7 @@ public class BlockFalling extends Block {
     super(name, hardness, miningLevel, toolType, requireToolType);
   }
   
-  public void onCreate(BlockState state) { clearInput(); fall(state); }
+  public void onCreate(BlockState state, boolean isLoad) { clearInput(); fall(state); }
   public void onNeighbourChanged(BlockState state, BlockState neighbour) { fall(state); }
   
   public void fall(BlockState state) {
@@ -602,6 +667,76 @@ public class BlockFalling extends Block {
       );
       state.setBlock(gr.blocks.get("Air"));
     }
+  }
+  
+}
+
+/**
+* Redstone works on a "push based" system --- that is, redstone inputs need to check if the blocks around them are inputting
+* signals, and keep track of this data. This class contains most of that logic, so that it is easy to implement new components.
+*/
+public class BlockRedstoneInput extends Block {
+  
+  public BlockRedstoneInput(String name, float hardness) {
+    super(name, hardness);
+  }
+ 
+  public BlockRedstoneInput(String name, float hardness, int miningLevel, String toolType, boolean requireToolType) {
+    super(name, hardness, miningLevel, toolType, requireToolType);
+  }
+  
+  public int getTickChance(BlockState state) { return 0; } // Tick every frame
+  public StateData getDefaultState() { return new StateData("north", 0, "east", 0, "south", 0, "west", 0, "hasChanged", true); } // The input values on each side, initially all off
+  public boolean itemHasBlockRender() { return false; }
+  
+  public int getInputOnSide(BlockState state, Direction side) {
+    StateData data = state.getState();
+    // If all, find the largest redstone signal across all sides
+    if      (side == Direction.ALL)   return max(new int[]{(int)data.get("north"), (int)data.get("east"), (int)data.get("south"), (int)data.get("west")});
+    // Otherwise, get the signal for the given side
+    else {
+      switch (side) {
+        case NORTH: return (int)data.get("north");
+        case EAST:  return (int)data.get("east");
+        case SOUTH: return (int)data.get("south");
+        case WEST:  return (int)data.get("west");
+        default:    return 0;
+      }
+    }
+  }
+  
+  public void onTick(BlockState state) {
+    StateData data = state.getState();
+    data.set("north", findInputForSide(state, Direction.NORTH,  0, -1, (int)data.get("north")));
+    data.set("east",  findInputForSide(state, Direction.EAST,   1,  0, (int)data.get("east")));
+    data.set("south", findInputForSide(state, Direction.SOUTH,  0,  1, (int)data.get("south")));
+    data.set("west",  findInputForSide(state, Direction.WEST,  -1,  0, (int)data.get("west")));
+  }
+  
+  protected int findInputForSide(BlockState state, Direction side, int xOff, int yOff, int previous) {
+    // If we can't connect redstone on the given side, turn it off
+    if (!canConnectRedstone(state, side)) { return 0; }
+    
+    BlockState other = getBlockInDirection(state, xOff, yOff);
+    
+    // If there is no block there, turn it off
+    if (other == null) { return 0; }
+    
+    // If the other block can't connect redstone, turn it off
+    if (!other.getBlock().canConnectRedstone(other, side)) { return 0; }
+    
+    int signalIn = other.getBlock().getRedstoneOutput(other, side);
+    
+    // Check if something's changed
+    if (signalIn != previous) state.getState().set("hasChanged", true);
+    
+    // Return the other block's redstone output level
+    return signalIn;
+  }
+  
+  protected BlockState getBlockInDirection(BlockState state, int xOff, int yOff) {
+    PVector pos = state.getPosition();
+    return terrainManager.getBlockStateAt((int)pos.x + xOff, (int)pos.y + yOff, (int)pos.z);
   }
   
 }
