@@ -1,6 +1,8 @@
 # Craftmine
 A Terraria / Minecraft hybrid written in Processing
 
+![](craftmine.png)
+
 I initially wrote this as my final project for CGRA151. Since then, I've since worked on it a little to add some new features, such as redstone and a creative mode.
 
 Hopefully some people find this useful, if not only as a demonstration of what Processing can do. Throughout writing this I was amazed at how easy some of the traditionally harder parts were --- Processing has a nice XML parsing system built-in, for example, and that made saving and loading worlds quite easy. I've also heard that networking / sockets work quite well out-of-the-box too, so maybe at some point I'll have a go at making a multiplayer version of this, although I think I would have to do quite a bit of refactoring.
