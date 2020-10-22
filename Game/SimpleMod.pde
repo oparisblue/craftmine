@@ -1,3 +1,7 @@
+/**
+* A mod which adds more content to the game. Replace me with a description of what your mod adds!
+* @author Your name here!!!
+*/
 public class SimpleMod implements Mod {
   
   /**

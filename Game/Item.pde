@@ -1,3 +1,7 @@
+/**
+* An item is something which can exist in an inventory, but cannot be placed in the world.
+* @author Orlando
+*/
 @SuppressWarnings("unused")
 public class Item {
   

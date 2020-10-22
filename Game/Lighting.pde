@@ -1,5 +1,7 @@
-public LightMap lightMap = new LightMap();
-
+/**
+* The lightmap stores and calculates lighting values for every block position.
+* @author Orlando
+*/
 public class LightMap {
  
   public HashMap<PVector, Light> lights = new HashMap<PVector, Light>();
@@ -61,6 +63,7 @@ public class LightMap {
   * <p>This method simulates that approach, but simply spawns lights as needed, instead of adding them as sources.</p>
   */
   private void surfaceLighting() {
+    Sky sky = terrainManager.getDimension().getSky();
     for (ArrayList<BlockState>[][] chunk : terrainManager.chunks.values()) {
       int tlX = (int)chunk[0][0].get(0).getPosition().x; // Top-Left x position
       for (int x = 0; x < TerrainManager.W; x++) {
@@ -123,3 +126,5 @@ public class Light {
   }
   
 }
+
+public LightMap lightMap = new LightMap();

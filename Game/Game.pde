@@ -1,3 +1,8 @@
+/**
+* Initialises the game, loads mods and deals with user input.
+* @author Orlando
+*/
+
 import java.util.Set;
 import java.util.HashSet;
 

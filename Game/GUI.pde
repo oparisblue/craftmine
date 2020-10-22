@@ -1,3 +1,7 @@
+/**
+* Represents a GUI screen which can be displayed above the game content.
+* @author Orlando
+*/
 public abstract class GUI {
   
   public abstract void render();
@@ -6,6 +10,11 @@ public abstract class GUI {
   
 }
 
+/**
+* A collection of utilities to assist with drawing GUIs.
+* You can use all of these methods without instantiating this class via the static hook <code>guiUtils</code>, e.g. <code>guiUtils.openGui(...)</code>.
+* @author Orlando
+*/
 public class GUIUtils {
   
   public final int SLOT_SIZE = 48;

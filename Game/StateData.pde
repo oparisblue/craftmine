@@ -1,3 +1,7 @@
+/**
+* Represents a collection of key-value pairs that can be saved and loaded from an XML file.
+* @author Orlando
+*/
 public class StateData {
  
   private HashMap<String, Object> data = new HashMap<String, Object>();

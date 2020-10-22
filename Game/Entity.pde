@@ -1,3 +1,7 @@
+/**
+* An object which can freely move around in the world. Each entity is ticked every frame, and is unconstrained grid, however they can collide with blocks.
+* @author Orlando
+*/
 public abstract class Entity implements Collider {
   
   public static final float GRAVITY = 0.3;
@@ -291,9 +295,17 @@ public class EntityItem extends Entity {
       if (position.x >= suctionBox.rect[0] &&
           position.x <= suctionBox.rect[2] &&
           position.y >= suctionBox.rect[1] &&
-          position.y <= suctionBox.rect[3] &&
-          suctionBox.suck(item)) {
-        terrainManager.despawnEntity(this);
+          position.y <= suctionBox.rect[3]) {
+        // Suck up as much of the item as possible
+        int amtToSuck = item.getStackSize();
+        int amtSucked = suctionBox.suck(item);
+        
+        // The suck method should mutate the itemstack's stack size if it
+        // only partially sucks, so we don't need to do that here.
+        
+        // If we sucked up the whole itemstack though, then we should
+        // despawn ourselves
+        if (amtSucked >= amtToSuck) terrainManager.despawnEntity(this);
         return;
       }
     }

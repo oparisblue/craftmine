@@ -1,3 +1,7 @@
+/**
+* A common location where all of the various types of game content from all mods can be found.
+* @author Orlando
+*/
 public class GameRegistry {
   
   public Registry<Biome>     biomes     = new Registry<Biome>("Biome");

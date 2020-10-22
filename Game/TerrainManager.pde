@@ -1,3 +1,7 @@
+/**
+* Loads, generates and stores the current world as the player explores it.
+* @author Orlando
+*/
 public class TerrainManager {
   
   public static final int W = 16;
@@ -75,8 +79,13 @@ public class TerrainManager {
     suctionBoxes.add(suctionBox);
   }
   
-  public void removeSuctionBox(SuctionBox suctionBox) {
-    suctionBoxes.remove(suctionBox); 
+  public void removeSuctionBox(int id) {
+    for (SuctionBox box : suctionBoxes) {
+      if (box.id == id) {
+        suctionBoxes.remove(box);
+        return;
+      }
+    }
   }
   
   public ArrayList<BlockState>[][] getChunkAt(int x) {
@@ -657,7 +666,7 @@ public interface Dimension {
   public String getName();
   
   /**
-  * A Whittaker Diagram shows the distribution of biomes on a 2d grid, with the X axis as Average Temperature,
+  * A Whittaker Diagram shows the distribution of biomes on a 2d grid, with the X axis as Average Temperature, 
   * and the Y axis as Annual Percipitation. We try to follow this model when choosing where to place biomes.
   * <p>For any given chunk, the TerrainManager will procedurally calculate the temperature and percipitation.
   * It will then use the Wittaker diagram produced by this function to map those values to a biome.</p>
@@ -670,12 +679,22 @@ public interface Dimension {
   */
   public String[][] getWhittakerDiagram();
   
+  /**
+  * Get the skybox to use for this dimension. This controls the backdrop colours and surface lighting,
+  * amongst other things.
+  * @return The skybox to use.
+  */
+  public Sky getSky();
+  
 }
+
+public static int NEXT_SUCTIONBOX_ID = 0;
 
 public abstract class SuctionBox {
   
   public float[] rect;
   public ArrayList<Integer> chunk;
+  public int id;
   
   public SuctionBox(float[] rect) {
     this(rect, null); 
@@ -684,9 +703,10 @@ public abstract class SuctionBox {
   public SuctionBox(float[] rect, ArrayList<Integer> chunk) {
     this.rect = rect;
     this.chunk = chunk;
+    this.id = NEXT_SUCTIONBOX_ID++;
   }
   
-  public abstract boolean suck(ItemStack item);
+  public abstract int suck(ItemStack item);
   
 }
 

@@ -1,3 +1,7 @@
+/**
+* The "main menu" GUI screen, where worlds can be created, loaded and deleted.
+* @author Orlando
+*/
 public class GUIMainMenu extends GUI {
   
   private GUIScrollbar scrollbar = null;

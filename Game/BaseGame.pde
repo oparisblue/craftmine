@@ -1,3 +1,7 @@
+/**
+* All of the default content -- all the blocks, items, entities, biomes, dimensions, etc in the main game are defined here.
+* @author Orlando
+*/
 public class BaseGame implements Mod {
   
   public BaseGame() { }
@@ -89,7 +93,7 @@ public class BaseGame implements Mod {
     gr.sr("Double Chest Left Open");
     gr.sr("Double Chest Right Open");
     gr.sr(new Block("Netherrack", 0.2, 0, "Pickaxe", false));
-    gr.sr(new Block("Nether Brick", 2, 1, "Pickaxe", true));
+    gr.sr(new Block("Nether Bricks", 2, 1, "Pickaxe", true));
     gr.sr(new Block("Nether Quartz Ore", 0.8, 1, "Pickaxe", true));
     gr.sr(new Block("Coal Block", 1.2, 0, "Pickaxe", false) {
       public int getBurnTime(BlockState state) { return 7200; } 
@@ -1115,8 +1119,9 @@ public class BaseGame implements Mod {
     public int getRequiredSortLayer() { return 1; }
     public boolean isOpaque(BlockState state) { return false; }
     public boolean doesBlockLight(BlockState state) { return false; }
-    public int getTickChance(BlockState state) { return 5; }
+    public int getTickChance(BlockState state) { return 0; } // Tick each frame
     
+    // Put item entities above into the container below
     public void onCreate(BlockState state, boolean isLoad) {
       final PVector pos = state.getPosition();
       final BlockState thisState = state;
@@ -1126,73 +1131,51 @@ public class BaseGame implements Mod {
         (pos.x + 1) * BlockState.BLOCK_SIZE,
         (pos.y + 1) * BlockState.BLOCK_SIZE
       }){
-        public boolean suck(ItemStack item) {
+        public int suck(ItemStack item) {
           Container container = getAdjacentContainer(thisState, Direction.SOUTH, 0, 1);
-          // Try to partially or fully add the item
-          return container.addItem(item, false) || container.addItem(item, true);
+          return container.addItem(item);
         }
       };
-      terrainManager.addSuctionBox(suctionBox); // This gets automatically unloaded for us by the terrain manager!!!
+      terrainManager.addSuctionBox(suctionBox);
+      state.getState().set("suctionBox", suctionBox.id);
     }
+    
+    // Move items from the container above to the container below
+    public void onTick(BlockState state) {
+      Container above = getAdjacentContainer(state, Direction.NORTH, 0, -1);
+      Container below = getAdjacentContainer(state, Direction.SOUTH, 0,  1);
+      if (above == null || below == null) return;
+      
+      // Find an item to pull
+      for (int i = 0; i < above.getSize(); i++) {
+         ItemStack item = above.getAtSlot(i);
+         if (item.isEmpty()) continue;
+         
+         // Try to add the item to the inventory below
+         ItemStack clone = cloneIS(item);
+         clone.setStackSize(1); // 1 item transferred per tick
+         int amtMoved = below.addItem(clone);
+         
+         if (amtMoved > 0) {
+           // If the add succeeded, decrease the size of the item in the top inventory,
+           // and end for this tick.
+           item.setStackSize(item.getStackSize() - 1);
+           return;
+         }
+      }
+    }
+    
+    // Remove the suction box if the block is manually destroyed.
+    // We don't have to worry about this for chunk unloads though, as in that case it happens automatically
+    public void onBeforeDestroy(BlockState state) {
+      terrainManager.removeSuctionBox((int)state.getState().get("suctionBox"));
+    } 
     
     private Container getAdjacentContainer(BlockState state,  Direction side, int xOff, int yOff) {
       final PVector pos = state.getPosition();
       BlockState other = terrainManager.getBlockStateAt((int)pos.x + xOff, (int)pos.y + yOff, (int)pos.z);
       if (other == null) return null;
       return other.getBlock().getContainerForSide(other, side); 
-    }
-    
-    public void onTick(BlockState state) {
-      Container above = getAdjacentContainer(state, Direction.NORTH, 0, -1);
-      Container below = getAdjacentContainer(state, Direction.SOUTH, 0,  1);
-      if (above == null || below == null) return;
-      // Find something to pull
-      for (int i = 0; i < above.getSize(); i++) {
-        ItemStack stackAbove = above.getAtSlot(i);
-        if (stackAbove.isEmpty()) continue;
-        
-        ItemStack stack = cloneIS(stackAbove);
-        
-        boolean done = false;
-        int moved = 0;
-        
-        for (int j = 0; j < below.getSize(); j++) {
-          ItemStack slot = below.getAtSlot(j);
-          if (slot.hasSameMetadata(stack)) {
-            int combined = slot.getStackSize() + stack.getStackSize();
-            int maxStackSize = stack.getItem().getMaxStackSize(stack.getState());
-            // Can all be added onto this stack
-            if (combined <= maxStackSize) {
-              slot.setStackSize(combined);
-              moved += combined;
-              done = true;
-              break;
-            }
-            // We have some items left over
-            else {
-              moved += maxStackSize - slot.getStackSize();
-              slot.setStackSize(maxStackSize);
-              stack.setStackSize(maxStackSize - combined);
-            }
-          }
-        }
-        if (!done) {
-          for (int j = 0; j < below.getSize(); j++) {
-            ItemStack slot = below.getAtSlot(j);
-            if (slot.isEmpty()) {
-              moved += stack.getStackSize();
-              below.setAtSlot(stack, j);
-              break;
-            }
-          }
-        }
-        
-        if (moved > 0) {
-          stackAbove.setStackSize(stackAbove.getStackSize() - moved);
-          print("moved");
-          return;
-        }
-      }
     }
   }
   
@@ -1248,6 +1231,8 @@ public class BaseGame implements Mod {
   
   public class DimensionOverworld implements Dimension {
     
+    private Sky sky = new Sky(color(220, 240, 250), color(1, 87, 155), 16);
+    
     public String getName() {
       return "Overworld";
     }
@@ -1263,9 +1248,15 @@ public class BaseGame implements Mod {
       return new String[][]{ new String[]{ terrainManager.isSuperflat() ? "Redstone Ready" : "Plains" } };
     }
     
+    public Sky getSky() {
+      return sky;
+    }
+    
   }
   
   public class DimensionNether implements Dimension {
+    
+    private Sky sky = new Sky(color(107, 27, 0), color(107, 27, 0), 16);
     
     public String getName() {
       return "Nether";
@@ -1273,6 +1264,10 @@ public class BaseGame implements Mod {
     
     public String[][] getWhittakerDiagram() {
       return new String[][]{ new String[]{ "Hell" } };
+    }
+    
+    public Sky getSky() {
+      return sky;
     }
     
   }
@@ -1338,5 +1333,4 @@ public class BaseGame implements Mod {
       }
     }
   }
-  
 }

@@ -1,5 +1,6 @@
 /**
 * The camera renders a small portion of the world to the screen.
+* @author Orlando
 */
 public class Camera {
   
@@ -25,6 +26,7 @@ public class Camera {
   * Clear the screen and output the camera's contents to it.
   */
   public void render() {
+    Sky sky = terrainManager.getDimension().getSky();
     background(sky.getTopGradientColour());
     
     float xChunk = this.x / (float)CHUNK_WIDTH;

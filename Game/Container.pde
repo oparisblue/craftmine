@@ -1,3 +1,7 @@
+/**
+* Represents an inventory container that holds items. Each container is visualised in the game GUI as a group of slots.
+* @author Orlando
+*/
 public class Container {
   
   protected ItemStack[] items;
@@ -56,36 +60,44 @@ public class Container {
   /**
   * Add a stack to the first avaliable slot in the container. Will split the item over several slots if required.
   * @param stack The stack to add.
-  * @returns <code>true</code> if the stack was fully added. <code>false</code> if the stack was added only partially or not at all.
+  * @returns The amount of items that were added.
   */
-  public boolean addItem(ItemStack stack, boolean fullAdd) {
+  public int addItem(ItemStack stack) {
+    int amtToAdd = stack.getStackSize();
+    int addedSoFar = 0;
+    
+    // Try merging with existing stacks before adding to a new slot
     for (int i = 0; i < getSize(); i++) {
       ItemStack slot = getAtSlot(i);
-      if (slot.hasSameMetadata(stack)) {
+      // If this slot is the same type of item, has the same metadata, and is not full...
+      if (slot.hasSameMetadata(stack) && slot.getStackSize() < slot.getItem().getMaxStackSize(stack.getState())) {
         int combined = slot.getStackSize() + stack.getStackSize();
         int maxStackSize = stack.getItem().getMaxStackSize(stack.getState());
         // Can all be added onto this stack
         if (combined <= maxStackSize) {
           slot.setStackSize(combined);
-          return true;
+          return amtToAdd; // Added them all :)
         }
         // We have some items left over
         else {
+          addedSoFar += maxStackSize - slot.getStackSize();
           slot.setStackSize(maxStackSize);
           stack.setStackSize(maxStackSize - combined);
         }
       }
     }
-    if (fullAdd) {
-      for (int i = 0; i < getSize(); i++) {
-        ItemStack slot = getAtSlot(i);
-        if (slot.isEmpty()) {
-          setAtSlot(stack, i);
-          return true;
-        }
+    
+    // Couldn't merge it all, put the remainder into an empty slot
+    for (int i = 0; i < getSize(); i++) {
+      ItemStack slot = getAtSlot(i);
+      if (slot.isEmpty()) {
+        setAtSlot(stack, i);
+        return amtToAdd; // Added them all :)
       }
     }
-    return false;
+    
+    // Couldn't add all the items
+    return addedSoFar;
   }
   
   @SuppressWarnings("unused")
@@ -191,16 +203,7 @@ public class CreativeInventory extends Container {
   public ItemStack getAtSlot(int i) {
     if (i < 0 || i > getSize()) return getEmptyIS();
     if (items[i].isEmpty()) return items[i];
-    Item item = items[i].getItem();
-    
-    // We need to deep clone the items, otherwise e.g. using the durability on the flint and steel would also drain the durability of our copy
-    if (item instanceof ItemBlock) {
-      StateData data = new StateData("Block", new BlockState(((BlockState)items[i].getState().get("Block")).getBlock(), new PVector(0, 0, 0), new StateData()));
-      return new ItemStack(items[i].getItem(), 1, data);
-    }
-    else {
-      return new ItemStack(items[i].getItem(), 1, item.getDefaultState());
-    }
+    return cloneIS(items[i]);
   }
   
   public void setAtSlot(ItemStack stack, int i) {} // Can't override items in the creative inventory

@@ -1,3 +1,7 @@
+/**
+* The player character, and all associated parts: inventory, controls, HUD, etc.
+* @author Orlando
+*/
 public class EntityPlayer extends Entity {
   
   public HotbarGUI hotbarGUI;
@@ -36,13 +40,13 @@ public class EntityPlayer extends Entity {
       }
     };
     
-    suctionBox = new SuctionBox(new float[]{ pos.x - BlockState.BLOCK_SIZE, pos.y - BlockState.BLOCK_SIZE, pos.x + BlockState.BLOCK_SIZE, pos.y + BlockState.BLOCK_SIZE }){
-      public boolean suck(ItemStack item) {
-        boolean success       = inventory.addItem(item, false);
-        if (!success) success = hotbar.addItem(item, false);
-        if (!success) success = inventory.addItem(item, true);
-        if (!success) success = hotbar.addItem(item, true);
-        return success;
+    // the rectangle is updated every tick in the update() method
+    suctionBox = new SuctionBox(new float[]{ 0, 0, 0, 0}){
+      public int suck(ItemStack item) {
+        int amtToAdd = item.getStackSize();
+        int amtAdded = inventory.addItem(item);
+        if (amtToAdd - amtAdded > 0) amtAdded += hotbar.addItem(item);
+        return amtAdded;
       }
     };
     terrainManager.addSuctionBox(suctionBox);
@@ -166,8 +170,7 @@ public class EntityPlayer extends Entity {
       }
     }
     
-    suctionBox.rect = new float[]{ position.x, position.y, position.x + BlockState.BLOCK_SIZE, position.y + BlockState.BLOCK_SIZE };
-    
+    suctionBox.rect = new float[]{ position.x - (BlockState.BLOCK_SIZE * 1), position.y, position.x + (BlockState.BLOCK_SIZE * 1.5), position.y + BlockState.BLOCK_SIZE };
   }
   
   public float[] getBoundingBox() {

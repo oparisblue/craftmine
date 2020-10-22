@@ -1,12 +1,13 @@
 /**
-* <p>Defines a block which can be placed in the world.</p>
-* <p>This application uses a singleton design pattern - each Block is only instantiated once.
-* In the world, the Voxel class represents every block, and has a reference to the Block singleton for that block type.</p>
-* <p>The methods defined here are called by the Terrain Manager and the Voxel class at appropriate times, to determine
-* what should happen to a block of this type in the world.</p>
-* <p>They all are passed a Block State. This contains information about the block for which the method is being called on.</p>
+* Defines a block which can be placed in the world.
 *
-* @author Orlando Parisblue 300426129
+* This application uses a singleton design pattern - each Block is only instantiated once.
+* In the world, the BlockState class represents each block, and has a reference to the Block singleton for that block type.
+*
+* The methods defined here are called elsewhere at appropriate times, to determine how this block behaves under some particular
+* scenario. They all are passed the Block State, so that which we can change behaviour in accordance with it's value.
+*
+* @author Orlando
 */
 @SuppressWarnings("unused")
 public class Block {
