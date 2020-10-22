@@ -227,28 +227,85 @@ public class BlockHoverGUI extends GUI {
   public int x;
   public int y;
   public boolean visible = true;
+  public int direction = 1;
   private ArrayList<BlockState> states;
+  
   
   public void update() {
     PVector offset = camera.getOffset();
     
+    // The block's offset. int terms of the camera
     int xOffset = -floor(offset.x - (floor(offset.x / BlockState.BLOCK_SIZE) * BlockState.BLOCK_SIZE));
-    int yOffset = -floor(offset.y - (floor(offset.y / BlockState.BLOCK_SIZE) * BlockState.BLOCK_SIZE));    
+    int yOffset = -floor(offset.y - (floor(offset.y / BlockState.BLOCK_SIZE) * BlockState.BLOCK_SIZE));
     
-    x = xOffset + (floor((float)(mouseX - xOffset) / BlockState.BLOCK_SIZE) * BlockState.BLOCK_SIZE);
-    y = yOffset + (floor((float)(mouseY - yOffset) / BlockState.BLOCK_SIZE) * BlockState.BLOCK_SIZE);
+    // The mouse offset, relative to the camera shot
+    float xMouse = ((float)(mouseX - xOffset)) / BlockState.BLOCK_SIZE;
+    float yMouse = ((float)(mouseY - yOffset)) / BlockState.BLOCK_SIZE;
+    
+    // The x and y position of the highlighted block
+    x = xOffset + (floor(xMouse) * BlockState.BLOCK_SIZE);
+    y = yOffset + (floor(yMouse) * BlockState.BLOCK_SIZE);
     
     states = terrainManager.getBlockStatesAt(floor((offset.x + x) / BlockState.BLOCK_SIZE), floor((offset.y + y) / BlockState.BLOCK_SIZE));
     
     visible = states != null && states.size() > 0 && !(states.get(0).isAir() && states.get(1).isAir());
     
+    // The mouse offset, relative to the current block
+    float xPos = xMouse - floor(xMouse);
+    float yPos = yMouse - floor(yMouse);
+    
+    // Find the direction to place directional blocks, like pistons etc.
+    
+    direction = 1; // North by default
+    
+    if (yPos >= 0.5) direction = 3; // South
+    
+    if (xPos <  0.25) direction = 4; // West
+    if (xPos >= 0.75) direction = 2; // East
   }
  
   public void render() {
-    if (visible) {
+    ItemStack item = player.hotbar.getAtSlot(player.hotbarSlot);
+    BlockState block = null;
+    if (!item.isEmpty() && item.getItem() instanceof ItemBlock) {
+      block = ((ItemBlock)item.getItem()).getBlock(item);
+    }
+    boolean directional = block != null && block.getBlock().placeBlockDirectionally();
+    
+    // Placing a directional block (where we need the overlay), or the overlay is visible
+    if (directional || visible) {
       stroke(255);
       fill(255, 255, 255, 32);
       rect(x - 1, y - 1, BlockState.BLOCK_SIZE, BlockState.BLOCK_SIZE);
+      
+      // We want to draw an arrow showing the direction if this is a directional block
+      if (!item.isEmpty() && item.getItem() instanceof ItemBlock) {
+        
+        if (directional) {
+          fill(255, 0, 0, 32);
+          
+          pushMatrix();
+            switch (direction) {
+              case 1: // North
+                translate(x, y + 64);
+                rotate(radians(-90));
+                break;
+              case 2: // East
+                translate(x, y);
+                break;
+              case 3: // South
+                translate(x + 64, y);
+                rotate(radians(90));
+                break;
+              case 4: // West
+                translate(x + 64, y + 64);
+                rotate(radians(180));
+                break;
+            }
+            image(gr.sprites.get("GUI Arrow Filled"), 8, 8, 48, 48);
+          popMatrix();
+        }
+      }
     }
   }
   

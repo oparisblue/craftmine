@@ -74,7 +74,7 @@ public class Block {
   * <p>Using <code>render()</code> has many advantages, however it can cause nasty errors if your block doesn't have its
   * expected state while in item form.</p>
   */
-  public boolean itemHasBlockRender() { return true; } // It's fine to render the items for most blocks using their in-world render call.
+  public boolean itemHasBlockRender() { return !placeBlockDirectionally(); } // It's fine to all non-directional blocks using their render method 
   
   /**
   * Called to render this block in a custom way using the Processing drawing functions, rather than relying on the default
@@ -87,7 +87,32 @@ public class Block {
   * @param defaultSize The default width & height of a block.
   */
   public void render(BlockState state, float leftX, float topY, int defaultSize) {
-    image(gr.sprites.get(getTexture(state)), leftX, topY, defaultSize, defaultSize); // Render the texture at the given location.
+    // If the block has a direction, render it rotated in that direction
+    if (placeBlockDirectionally()) {
+      pushMatrix();
+        switch ((int)state.getState().get("direction")) {
+          case 1: // North
+            translate(leftX, topY);
+            break;
+          case 2: // East
+            translate(leftX + defaultSize, topY);
+            rotate(radians(90));
+            break;
+          case 3: // South
+            translate(leftX + defaultSize, topY + defaultSize);
+            rotate(radians(180));
+            break;
+          case 4: // West
+            translate(leftX, topY + defaultSize);
+            rotate(radians(270));
+            break;
+        }
+        image(gr.sprites.get(getTexture(state)), 0, 0, defaultSize, defaultSize);
+      popMatrix();
+    }
+    else {
+      image(gr.sprites.get(getTexture(state)), leftX, topY, defaultSize, defaultSize); // Render the texture at the given location.
+    }
   }
   
   /**
@@ -351,6 +376,21 @@ public class Block {
   * @return <code>true</code> if it appears in the menu, <code>false</code> otherwise.
   */
   public boolean canShowInCreative() { return true; } // Most blocks should be shown in creative
+  
+  /**
+  * Get the container accessible from a given side. This allows e.g. pipes to move items in and out of inventories.
+  * @param state The state (position and state object) of the block.
+  * @param side The side of the block to attempt to get a container for.
+  * @return <code>null</code> if there is no container; otherwise the container which can be accessed from that side.
+  */
+  public Container getContainerForSide(BlockState state, Direction side) { return null; } // Most blocks don't have a container
+  
+  /**
+  * Should this block be placed directionally? If this is true, the direction arrow will appear when placing the block, and it's state
+  * will gain a "direction" value upon placement, containing a number 1, 2, 3, or 4 corresponding to North, East, South and West.
+  * @return <code>true</code> if this block should be placed directionally, <code>false</code> if it shouldn't
+  */
+  public boolean placeBlockDirectionally() { return false; } // Most blocks do not account for direction
   
 }
 

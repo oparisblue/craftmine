@@ -165,8 +165,12 @@ public class BaseGame implements Mod {
         return getStacks(getIS("Quantum Shard", 2, new StateData("id", id, "r", int(random(255)), "g", int(random(255)), "b", int(random(255))))); // Drop 2 shards, coloured the same, with the same ID
       }
     });
-    gr.sr(new Block("Breaking Rod", 2, 1, "Pickaxe", true));
-    gr.sr(new BlockTransparentSpecial("Waypoint Totem", 1, 0, "Axe", false));
+    gr.sr(new BlockTransparentSpecial("Diamond Rod", 2, 1, "Pickaxe", true){
+      public String[] getTooltip(BlockState state) { return new String[]{"Breaks blocks when pushed into them by a piston."}; }
+      public color getTooltipColour(BlockState state) { return color(0, 255, 255); }
+      public boolean placeBlockDirectionally() { return true; }
+    });
+    gr.sr(new BlockTransparentSpecial("Electromagnet", 2, 1, "Pickaxe", true));
     gr.sr(new BlockTransparentSpecial("World Anchor", 2, 1, "Pickaxe", true){
       public String[] getTooltip(BlockState state) { return new String[]{"Ensures its surrounding chunk remains loaded."}; }
       public color getTooltipColour(BlockState state) { return color(0, 255, 255); }
@@ -207,8 +211,40 @@ public class BaseGame implements Mod {
       public String getTexture(BlockState state) { return getInputOnSide(state, Direction.ALL) > 0 ? "Redstone Lamp On" : "Redstone Lamp"; } // Light up texture when recieving a signal
       public boolean canConnectRedstone(BlockState state, Direction side) { return true; }
       public boolean doesBlockLight(BlockState state) { return false; }
+      public int getRequiredSortLayer() { return 1; }
     });
     gr.sr("Redstone Lamp On");
+    gr.sr(new BlockPiston(false)); // Normal
+    gr.sr(new BlockPiston(true)); // Sticky
+    gr.sr("Piston Base");
+    gr.sr(new Block("Piston Arm", 2, 1, "Pickaxe", true){
+      public boolean canShowInCreative() { return false; }
+    });
+    gr.sr(new Block("Sticky Piston Arm", 2, 1, "Pickaxe", true){
+      public boolean canShowInCreative() { return false; }
+    });
+    gr.sr(new Block("Not Gate", 2, 1, "Pickaxe", true));
+    gr.sr("Not Gate Indicator");
+    gr.sr("Not Gate Symbol");
+    gr.sr(new Block("Redstone Clock", 2, 1, "Pickaxe", true){
+       public boolean canConnectRedstone(BlockState state, Direction side) { return true; }
+       public int getRequiredSortLayer() { return 1; }
+       public boolean itemHasBlockRender() { return false; }
+       public void render(BlockState state, float leftX, float topY, int defaultSize) {
+         super.render(state, leftX, topY, defaultSize);
+         int pos = frameCount % 100;
+         if (pos < 80) {
+           if (pos >= 0)  image(gr.sprites.get("Redstone Clock Dot"), leftX,      topY, defaultSize, defaultSize); // First dot
+           if (pos >= 20) image(gr.sprites.get("Redstone Clock Dot"), leftX + 16, topY, defaultSize, defaultSize); // Second dot
+           if (pos >= 40) image(gr.sprites.get("Redstone Clock Dot"), leftX + 32, topY, defaultSize, defaultSize); // Third dot
+         }
+       }
+       // Between 0 and 60: count. Between 60 and 80: on. Between 80 and 100: off.
+       public int getRedstoneOutput(BlockState state, Direction side) { return frameCount % 100 >= 60 && frameCount % 100 < 80 ? 16 : 0; } 
+    });
+    gr.sr("Redstone Clock Dot");
+    gr.sr(new BlockHopper());
+    gr.sr("Waypoint Totem Core");
     
     // Blocks with no associated sprite at the current smart registry pointer
     
@@ -219,7 +255,11 @@ public class BaseGame implements Mod {
        }
     });
     
-    gr.srSkip(18);
+    gr.blocks.register("Waypoint Totem", new BlockTransparentSpecial("Waypoint Totem", 1, 1, "Axe", false){
+      public String getTexture(BlockState state) { return "Inert Totem"; } 
+    });
+    
+    gr.srSkip(6);
     
     // Items
     gr.sr(new ItemTool("Wooden Pickaxe", 32, "Pickaxe", 1, 0.5));
@@ -281,6 +321,8 @@ public class BaseGame implements Mod {
       public String[] getTooltip(ItemStack stack) { return new String[]{"ID: " + ((int)stack.getState().get("id"))}; }
       public color getTooltipColour(ItemStack stack) { return color((int)stack.getState().get("r"), (int)stack.getState().get("g"), (int)stack.getState().get("b")); }
     });
+    gr.sr(new Item("Inert Totem"));
+    gr.sr(new Item("Slime Ball"));
     
     // Entities
     gr.entities.register("TNT", new EntityTNT());
@@ -308,6 +350,16 @@ public class BaseGame implements Mod {
     gr.cr(getIS("Iron Shovel"), "122", 1, 3, getIS("Iron Ingot"), getIS("Stick"));
     gr.cr(getIS("Gold Shovel"), "122", 1, 3, getIS("Gold Ingot"), getIS("Stick"));
     gr.cr(getIS("Diamond Shovel"), "122 ", 1, 3, getIS("Diamond"), getIS("Stick"));
+    gr.cr(getBlockIS("Lever"), "12", 1, 2, getIS("Stick"), getBlockIS("Cobblestone"));
+    gr.cr(getBlockIS("Electromagnet"), " 1 121 1 ", 3, 3, getBlockIS("Redstone"), getIS("Iron Ingot"));
+    gr.cr(getBlockIS("Diamond Rod"), "122", 1, 3, getIS("Diamond"), getIS("Iron Ingot"));
+    gr.cr(getBlockIS("World Anchor"), " 1  1 111", 3, 3, getIS("Iron Ingot"));
+    gr.cr(getBlockIS("Hopper"), "121111 1 ", 3, 3, getIS("Iron Ingot"), getBlockIS("Chest"));
+    gr.cr(getBlockIS("Redstone Lamp"), "111121131", 3, 3, getBlockIS("Cobblestone"), getBlockIS("Torch"), getBlockIS("Redstone"));
+    gr.cr(getBlockIS("Redstone Clock"), "111222111", 3, 3, getBlockIS("Cobblestone"), getBlockIS("Redstone"));
+    gr.cr(getBlockIS("Not Gate"), "111232111", 3, 3, getBlockIS("Cobblestone"), getBlockIS("Redstone"), getIS("Flint"));
+    gr.cr(getBlockIS("Piston"), "111232444", 3, 3, getFuzzyIS("Planks"), getBlockIS("Cobblestone"), getIS("Iron Ingot"), getBlockIS("Redstone"));
+    gr.cr(getBlockIS("Inert Totem"), "111 1 111", 3, 3, getFuzzyIS("Planks"));
     
     // Shapeless Crafting / Custom Crafting
     
@@ -330,6 +382,7 @@ public class BaseGame implements Mod {
         return getBlockIS("Quantum Chest", 1, quantumState);
       }
     });
+    gr.cr(new ShapelessRecipe(getBlockIS("Sticky Piston"), getBlockIS("Piston"), getIS("Slime Ball")));
     
     //Smelting
     gr.sm(getIS("Iron Ingot"), getBlockIS("Iron Ore"));
@@ -554,6 +607,7 @@ public class BaseGame implements Mod {
     public int getRequiredSortLayer() { return 1; }
     public boolean requiresSaveOnUnload() { return true; }
     public boolean itemHasBlockRender() { return false; }
+    public Container getContainerForSide(BlockState state, Direction side) { return (Container)state.getState().get("Items"); }
     
     public void render(BlockState state, float leftX, float topY, int defaultSize) {
       String baseTexture = "Chest";
@@ -970,7 +1024,7 @@ public class BaseGame implements Mod {
     public int getRequiredSortLayer() { return 1; }
     public boolean requiresSaveOnUnload() { return true; }
     public boolean canConnectRedstone(BlockState state, Direction side) { return true; }
-    public boolean isCollidable(BlockState state) { return true; }
+    public boolean isCollidable(BlockState state) { return false; }
     public void onNeighbourChanged(BlockState state, BlockState neighbour) { connectToOthers(state); }
     public void onCreate(BlockState state, boolean isLoad) { if (!isLoad) connectToOthers(state); }
     
@@ -1048,6 +1102,146 @@ public class BaseGame implements Mod {
       BlockState other = getBlockInDirection(state, xOff, yOff); 
       if (other == null) return false;
       return other.getBlock().canConnectRedstone(other, side);
+    }
+    
+  }
+  
+  public class BlockHopper extends Block {
+    
+    public BlockHopper() {
+      super("Hopper", 2, 1, "Pickaxe", true);
+    }
+    
+    public int getRequiredSortLayer() { return 1; }
+    public boolean isOpaque(BlockState state) { return false; }
+    public boolean doesBlockLight(BlockState state) { return false; }
+    public int getTickChance(BlockState state) { return 5; }
+    
+    public void onCreate(BlockState state, boolean isLoad) {
+      final PVector pos = state.getPosition();
+      final BlockState thisState = state;
+      SuctionBox suctionBox = new SuctionBox(new float[]{
+        (pos.x)     * BlockState.BLOCK_SIZE,
+        (pos.y - 2) * BlockState.BLOCK_SIZE,
+        (pos.x + 1) * BlockState.BLOCK_SIZE,
+        (pos.y + 1) * BlockState.BLOCK_SIZE
+      }){
+        public boolean suck(ItemStack item) {
+          Container container = getAdjacentContainer(thisState, Direction.SOUTH, 0, 1);
+          // Try to partially or fully add the item
+          return container.addItem(item, false) || container.addItem(item, true);
+        }
+      };
+      terrainManager.addSuctionBox(suctionBox); // This gets automatically unloaded for us by the terrain manager!!!
+    }
+    
+    private Container getAdjacentContainer(BlockState state,  Direction side, int xOff, int yOff) {
+      final PVector pos = state.getPosition();
+      BlockState other = terrainManager.getBlockStateAt((int)pos.x + xOff, (int)pos.y + yOff, (int)pos.z);
+      if (other == null) return null;
+      return other.getBlock().getContainerForSide(other, side); 
+    }
+    
+    public void onTick(BlockState state) {
+      Container above = getAdjacentContainer(state, Direction.NORTH, 0, -1);
+      Container below = getAdjacentContainer(state, Direction.SOUTH, 0,  1);
+      if (above == null || below == null) return;
+      // Find something to pull
+      for (int i = 0; i < above.getSize(); i++) {
+        ItemStack stackAbove = above.getAtSlot(i);
+        if (stackAbove.isEmpty()) continue;
+        
+        ItemStack stack = cloneIS(stackAbove);
+        
+        boolean done = false;
+        int moved = 0;
+        
+        for (int j = 0; j < below.getSize(); j++) {
+          ItemStack slot = below.getAtSlot(j);
+          if (slot.hasSameMetadata(stack)) {
+            int combined = slot.getStackSize() + stack.getStackSize();
+            int maxStackSize = stack.getItem().getMaxStackSize(stack.getState());
+            // Can all be added onto this stack
+            if (combined <= maxStackSize) {
+              slot.setStackSize(combined);
+              moved += combined;
+              done = true;
+              break;
+            }
+            // We have some items left over
+            else {
+              moved += maxStackSize - slot.getStackSize();
+              slot.setStackSize(maxStackSize);
+              stack.setStackSize(maxStackSize - combined);
+            }
+          }
+        }
+        if (!done) {
+          for (int j = 0; j < below.getSize(); j++) {
+            ItemStack slot = below.getAtSlot(j);
+            if (slot.isEmpty()) {
+              moved += stack.getStackSize();
+              below.setAtSlot(stack, j);
+              break;
+            }
+          }
+        }
+        
+        if (moved > 0) {
+          stackAbove.setStackSize(stackAbove.getStackSize() - moved);
+          print("moved");
+          return;
+        }
+      }
+    }
+  }
+  
+  public class BlockPiston extends BlockRedstoneInput {
+    
+    private boolean sticky = false;
+    
+    public BlockPiston(boolean sticky) {
+      super(sticky ? "Sticky Piston" : "Piston", 1, 0, "Pickaxe", false); 
+      
+      this.sticky = sticky;
+    }
+    
+    public boolean placeBlockDirectionally() { return true; }
+    public boolean isOpaque(BlockState state) { return false; }
+    public boolean doesBlockLight(BlockState state) { return false; }
+    public int getRequiredSortLayer() { return 1; }
+    public boolean canConnectRedstone(BlockState state, Direction side) { return true; }
+    
+    public StateData getDefaultState() {
+      StateData data = super.getDefaultState();
+      data.set("extended", false);
+      return data;
+    }
+    
+    public String getTexture(BlockState state) {
+      if ((boolean)state.getState().get("extended")) return "Piston Base";
+      return sticky ? "Sticky Piston" : "Piston";
+    }
+    
+    public void onTick(BlockState state) {
+      super.onTick(state);
+      
+      StateData data = state.getState();
+      
+      // Change in signal
+      if ((boolean)data.get("hasChanged")) {
+        boolean powered = getInputOnSide(state, Direction.ALL) > 0;
+        boolean extended = (boolean)data.get("extended");
+        
+        // If we're getting power, but we haven't extended, we need to extend!
+        if (powered && !extended) {
+          data.set("extended", true);
+        }
+        // Otherwise, if we're not powered, but we are still extended, we need to retract!
+        else if (!powered && extended) {
+          data.set("extended", false);
+        }
+      }
     }
     
   }

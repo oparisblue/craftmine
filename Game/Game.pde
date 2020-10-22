@@ -38,6 +38,8 @@ void setup() {
   
   mods = new ArrayList<Mod>();
   
+  // Reflection trickery here only possible because Processing wraps _all_ our code into a single class that extends PApplet
+  // You can reflect your own inner classes like this, but not outer ones....
   for (Class c : this.getClass().getDeclaredClasses()) {
     for (Class i : c.getInterfaces()) {
       if (i.getSimpleName().equals("Mod")) {
@@ -51,7 +53,7 @@ void setup() {
   
   for (int i = 0; i < 2; i++) {
     for (Mod mod : mods) {
-      if (i == 0)      mod.preInit();
+      if      (i == 0) mod.preInit();
       else if (i == 1) mod.init();
     }
   }

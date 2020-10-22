@@ -256,7 +256,12 @@ public class ItemBlock extends Item {
     if ((sortLayer == -1 || sortLayer == layer) && target instanceof ArrayList<?>) {
       BlockState pos = ((BlockState)(((ArrayList)target).get(layer)));
       if (pos.isAir() || pos.getBlock().isOverridable(pos)) {
-        pos.setBlock(state.getBlock(), state.getBlock().doesPreserveState(state) ? state.getState() : state.getBlock().getDefaultState());
+        StateData data = state.getBlock().doesPreserveState(state) ? state.getState() : state.getBlock().getDefaultState();
+        // Rotate directional blocks
+        if (state.getBlock().placeBlockDirectionally()) {
+          data.set("direction", player.blockHover.direction);
+        }
+        pos.setBlock(state.getBlock(), data);
         if (!terrainManager.isCreative()) stack.addStackSize(-1);
       }
     }
@@ -479,6 +484,10 @@ public ItemStack getFuzzyIS(String name) {
 
 public ItemStack getFuzzyIS(String name, StateData state) {
   return new FuzzyItemStack(name, state);
+}
+
+public ItemStack cloneIS(ItemStack stack) {
+  return new ItemStack(stack.getItem(), stack.getStackSize(), stack.getState().clone());
 }
 
 public ArrayList<ItemStack> getStacks(ItemStack... stacks) {

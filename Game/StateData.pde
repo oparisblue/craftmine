@@ -73,6 +73,13 @@ public class StateData {
     return data.get(name);
   }
   
+  public StateData clone() {
+    StateData other = new StateData();
+    // NOT a deep clone :)
+    for (String k : data.keySet()) other.set(k, data.get(k));
+    return other;
+  }
+  
   public HashMap<String, Object> getMap() {
     return data;
   }
